@@ -1,0 +1,13 @@
+HTTP/1.1 200 OK
+Date: Mon, 23 Feb 2026 19:15:23 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 462
+Connection: keep-alive
+X-Rate-Limit-Limit: 100
+X-Rate-Limit-Reset: 60
+X-Rate-Limit-Remaining: 99
+ETag: W/"14dd80a8476f81cd18ce11eafe954d00"
+Cache-Control: max-age=0, private, must-revalidate
+X-Request-Id: 264b5c41-b308-415f-9ec7-fba7cf946ea1
+X-Runtime: 0.165933
+

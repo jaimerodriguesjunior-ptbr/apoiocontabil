@@ -1,0 +1,530 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<es:enviarLoteRpsEnvio xmlns:es="http://www.equiplano.com.br/esnfs"
+                       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                       xsi:schemaLocation="http://www.equiplano.com.br/enfs esRecepcionarLoteRpsEnvio_v01.xsd">
+    <lote>
+        <!-- nrLote obrigatório --><nrLote>1</nrLote>
+        <!-- qtRps obrigatório --><qtRps>5</qtRps>
+        <!-- nrVersaoXml obrigatório --><nrVersaoXml>1</nrVersaoXml>
+        <prestador>
+            <!-- nrCnpj obrigatório --><nrCnpj>99999999999999</nrCnpj>
+            <!-- nrInscricaoMunicipal obrigatório --><nrInscricaoMunicipal>123456</nrInscricaoMunicipal>
+            <!-- isOptanteSimplesNacional obrigatório {1=sim, 2=não} --><isOptanteSimplesNacional>2</isOptanteSimplesNacional>
+            <!-- idEntidade obrigatório --><idEntidade>136</idEntidade>
+        </prestador>
+        <listaRps>
+
+            <!-- RPS 1 - SERVIÇO COMUM (sem obra/evento/comercioExterior) -->
+            <rps>
+                <!-- nrRps obrigatório --><nrRps>4</nrRps>
+                <!-- nrEmissorRps obrigatório --><nrEmissorRps>1</nrEmissorRps>
+                <!-- dtEmissaoRps obrigatório --><dtEmissaoRps>2009-06-15T10:00:00</dtEmissaoRps>
+                <!-- stRps obrigatório {1=converter, 2=converter e cancelar NFS, 3=cancelar RPS}--><stRps>1</stRps>
+                <!-- tpTributacao obrigatório {1=tributado no munícipio, 2=em outro munícipio, 3=isento/imune, 4=suspenso/decisão judicial}--><tpTributacao>1</tpTributacao>
+                <!-- isIssRetido obrigatório {1=sim, 2=não}--><isIssRetido>2</isIssRetido>
+                <tomador>
+                    <documento>
+                        <!-- nrDocumento obrigatório --><nrDocumento>38693524000188</nrDocumento>
+                        <!-- tpDocumento obrigatório {1=cpf, 2=cnpj, 3=estrangeiro}--><tpDocumento>1</tpDocumento>
+                        <!-- dsDocumentoEstrangeiro obrigatório se tpDocumento=3--><dsDocumentoEstrangeiro></dsDocumentoEstrangeiro>
+                    </documento>
+                    <!-- nmTomador obrigatório --><nmTomador>Gancho Serviços Marítimos</nmTomador>
+                    <dsEmail>contato@gancho.com.br</dsEmail>
+                    <nrInscricaoEstadual>19518744</nrInscricaoEstadual>
+                    <nrInscricaoMunicipal>555</nrInscricaoMunicipal>
+                    <dsEndereco>R dos Navegantes 123, 321</dsEndereco>
+                    <nrEndereco>123</nrEndereco>
+                    <dsComplemento>321</dsComplemento>
+                    <nmBairro>Boa Viagem</nmBairro>
+                    <nrCidadeIbge>261160</nrCidadeIbge>
+                    <nmUf>PR</nmUf>
+                    <!-- nmPais obrigatório --><nmPais>Brasil</nmPais>
+                    <nrCep>51021010</nrCep>
+                    <nrTelefone>41 99999999</nrTelefone>
+                </tomador>
+                <listaServicos>
+                    <servico>
+                        <!--
+                            Usando nrServico (tsNrServico) ao invés de nrServicoItem/nrServicoSubItem:
+                            - 6 dígitos: item+subitem+desdobro (ex: 010101)
+                            - 9 dígitos: inclui especialização (ex: 010101000)
+                            - ou com pontos: 01.01.01 / 01.01.01.000
+                        -->
+                        <nrServico>01.01.01.000</nrServico>
+
+                        <!-- NBS (tsCodigoNbs: 9 dígitos, ex: 101052100) -->
+                        <cdNbs>101052100</cdNbs>
+                        <!-- vlServico obrigatório --><vlServico>1100.32</vlServico>
+                        <!-- vlAliquota obrigatório --><vlAliquota>0.05</vlAliquota>
+                        <deducao>
+                            <vlDeducao>1.0</vlDeducao>
+                            <!-- dsJustificativaDeducao obrigatório Se informado vlDeducao--><dsJustificativaDeducao>teste</dsJustificativaDeducao>
+                        </deducao>
+                        <!-- vlBaseCalculo obrigatório --><vlBaseCalculo>1100.00</vlBaseCalculo>
+                        <!-- vlIssServico obrigatório --><vlIssServico>55.02</vlIssServico>
+                        <!-- dsDiscriminacaoServico obrigatório --><dsDiscriminacaoServico>
+                        Teste de RPS - Discriminação do serviço (permite caracteres especiais)
+                    </dsDiscriminacaoServico>
+                    </servico>
+                </listaServicos>
+                <!-- vlTotalRps obrigatório --><vlTotalRps>1100.32</vlTotalRps>
+                <!-- vlLiquidoRps obrigatório --><vlLiquidoRps>1100.32</vlLiquidoRps>
+                <retencoes>
+                    <vlCofins>20</vlCofins>
+                    <vlCsll>50</vlCsll>
+                    <vlInss>30</vlInss>
+                    <vlIrrf>40</vlIrrf>
+                    <vlPis>10</vlPis>
+                    <!-- vlIss obrigatório se isIssRetido = 1 --><vlIss>10</vlIss>
+                    <vlAliquotaCofins>2.0</vlAliquotaCofins>
+                    <vlAliquotaCsll>3.0</vlAliquotaCsll>
+                    <vlAliquotaInss>4.0</vlAliquotaInss>
+                    <vlAliquotaIrrf>5.0</vlAliquotaIrrf>
+                    <vlAliquotaPis>6.0</vlAliquotaPis>
+                </retencoes>
+                <!-- Bloco IBS/CBS (tcIbsCbs) -->
+                <ibsCbs>
+                    <!-- tsFinNfse: 0-Regular -->
+                    <finNFSe>0</finNFSe>
+
+                    <!-- tsIndFinal: 0=Não é operação para consumidor final, 1=É operação para consumidor final -->
+                    <indFinal>1</indFinal>
+
+                    <!-- tsTpOper: 1..5 (operação com ente governamental / imóveis) -->
+                    <tpOper>1</tpOper>
+
+                    <!-- tsTpEnteGov: 1-União, 2-Estado, 3-DF, 4-Município -->
+                    <tpEnteGov>4</tpEnteGov>
+
+                    <!-- tsIndDest: 0=destinatário é o próprio tomador, 1=destinatário diferente -->
+                    <indDest>0</indDest>
+
+                    <!-- tsCClassTrib: 6 dígitos -->
+                    <cClassTrib>200051</cClassTrib>
+
+                    <!-- tsIndOp: código da operação IBS/CBS (1 a 6 dígitos) -->
+                    <indOp>100301</indOp>
+                </ibsCbs>
+            </rps>
+
+            <!-- RPS 2 - TOMADOR ESTRANGEIRO (grupo tomador estrangeiro) -->
+            <rps>
+                <!-- nrRps obrigatório --><nrRps>5</nrRps>
+                <!-- nrEmissorRps obrigatório --><nrEmissorRps>1</nrEmissorRps>
+                <!-- dtEmissaoRps obrigatório --><dtEmissaoRps>2009-06-15T10:00:00</dtEmissaoRps>
+                <!-- stRps obrigatório {1=converter, 2=converter e cancelar NFS, 3=cancelar RPS}--><stRps>1</stRps>
+                <!-- tpTributacao obrigatório {1=tributado no munícipio, 2=em outro munícipio, 3=isento/imune, 4=suspenso/decisão judicial}--><tpTributacao>1</tpTributacao>
+                <!-- isIssRetido obrigatório {1=sim, 2=não}--><isIssRetido>2</isIssRetido>
+                <tomador>
+                    <!-- nmTomador obrigatório --><nmTomador>TOMADOR ESTRANGEIRO 1 SEM DOCUMENTO</nmTomador>
+                    <dsEmail>contato@gancho.com.br</dsEmail>
+                    <nrInscricaoEstadual>19518744</nrInscricaoEstadual>
+                    <dsEndereco>R dos Navegantes 123, 321</dsEndereco>
+                    <nrEndereco>123</nrEndereco>
+                    <dsComplemento>321</dsComplemento>
+                    <nmBairro>Boa Viagem</nmBairro>
+                    <nmCidadeEstrangeira>Nova York</nmCidadeEstrangeira>
+                    <!-- nmPais obrigatório --><nmPais>Estados Unidos</nmPais>
+                    <nrTelefone>41 99999999</nrTelefone>
+                </tomador>
+                <listaServicos>
+                    <servico>
+                        <!--
+                            Usando nrServico (tsNrServico) ao invés de nrServicoItem/nrServicoSubItem:
+                            - 6 dígitos: item+subitem+desdobro (ex: 010101)
+                            - 9 dígitos: inclui especialização (ex: 010101000)
+                            - ou com pontos: 01.01.01 / 01.01.01.000
+                        -->
+                        <nrServico>01.01.01.000</nrServico>
+
+                        <!-- NBS (tsCodigoNbs: 9 dígitos, ex: 101052100) -->
+                        <cdNbs>101052100</cdNbs>
+                        <!-- vlServico obrigatório --><vlServico>1100.32</vlServico>
+                        <!-- vlAliquota obrigatório --><vlAliquota>0.05</vlAliquota>
+                        <deducao>
+                            <vlDeducao>1.0</vlDeducao>
+                            <!-- dsJustificativaDeducao obrigatório Se informado vlDeducao--><dsJustificativaDeducao>teste</dsJustificativaDeducao>
+                        </deducao>
+                        <!-- vlBaseCalculo obrigatório --><vlBaseCalculo>1100.00</vlBaseCalculo>
+                        <!-- vlIssServico obrigatório --><vlIssServico>55.02</vlIssServico>
+                        <!-- dsDiscriminacaoServico obrigatório --><dsDiscriminacaoServico>
+                        Teste de RPS - Discriminação do serviço (permite caracteres especiais)
+                    </dsDiscriminacaoServico>
+                    </servico>
+                </listaServicos>
+                <!-- vlTotalRps obrigatório --><vlTotalRps>1100.32</vlTotalRps>
+                <!-- vlLiquidoRps obrigatório --><vlLiquidoRps>1100.32</vlLiquidoRps>
+                <retencoes>
+                    <vlCofins>20</vlCofins>
+                    <vlCsll>50</vlCsll>
+                    <vlInss>30</vlInss>
+                    <vlIrrf>40</vlIrrf>
+                    <vlPis>10</vlPis>
+                    <!-- vlIss obrigatório se isIssRetido = 1 --><vlIss>10</vlIss>
+                    <vlAliquotaCofins>2.0</vlAliquotaCofins>
+                    <vlAliquotaCsll>3.0</vlAliquotaCsll>
+                    <vlAliquotaInss>4.0</vlAliquotaInss>
+                    <vlAliquotaIrrf>5.0</vlAliquotaIrrf>
+                    <vlAliquotaPis>6.0</vlAliquotaPis>
+                </retencoes>
+                <!-- Bloco IBS/CBS (tcIbsCbs) -->
+                <ibsCbs>
+                    <!-- tsFinNfse: 0-Regular -->
+                    <finNFSe>0</finNFSe>
+
+                    <!-- tsIndFinal: 0=Não é operação para consumidor final, 1=É operação para consumidor final -->
+                    <indFinal>1</indFinal>
+
+                    <!-- tsTpOper: 1..5 (operação com ente governamental / imóveis) -->
+                    <tpOper>1</tpOper>
+
+                    <!-- tsTpEnteGov: 1-União, 2-Estado, 3-DF, 4-Município -->
+                    <tpEnteGov>4</tpEnteGov>
+
+                    <!-- tsIndDest: 0=destinatário é o próprio tomador, 1=destinatário diferente -->
+                    <indDest>0</indDest>
+
+                    <!-- tsCClassTrib: 6 dígitos -->
+                    <cClassTrib>200051</cClassTrib>
+
+                    <!-- tsIndOp: código da operação IBS/CBS (1 a 6 dígitos) -->
+                    <indOp>100301</indOp>
+                </ibsCbs>
+            </rps>
+
+            <!-- RPS 3 - TOMADOR ESTRANGEIRO COM DOCUMENTO (grupo tomador estrangeiro + documento) -->
+            <rps>
+                <!-- nrRps obrigatório --><nrRps>6</nrRps>
+                <!-- nrEmissorRps obrigatório --><nrEmissorRps>1</nrEmissorRps>
+                <!-- dtEmissaoRps obrigatório --><dtEmissaoRps>2009-06-15T10:00:00</dtEmissaoRps>
+                <!-- stRps obrigatório {1=converter, 2=converter e cancelar NFS, 3=cancelar RPS}--><stRps>1</stRps>
+                <!-- tpTributacao obrigatório {1=tributado no munícipio, 2=em outro munícipio, 3=isento/imune, 4=suspenso/decisão judicial}--><tpTributacao>1</tpTributacao>
+                <!-- isIssRetido obrigatório {1=sim, 2=não}--><isIssRetido>2</isIssRetido>
+                <tomador>
+                    <documento>
+                        <!-- nrDocumento obrigatório --><nrDocumento>12345</nrDocumento>
+                        <!-- tpDocumento obrigatório {1=cpf, 2=cnpj, 3=estrangeiro}--><tpDocumento>3</tpDocumento>
+                        <!-- dsDocumentoEstrangeiro obrigatório se tpDocumento=3--><dsDocumentoEstrangeiro>ID</dsDocumentoEstrangeiro>
+                    </documento>
+                    <!-- nmTomador obrigatório --><nmTomador>TOMADOR ESTRANGEIRO 2 COM DOCUMENTO</nmTomador>
+                    <dsEmail>contato@gancho.com.br</dsEmail>
+                    <nrInscricaoEstadual>19518744</nrInscricaoEstadual>
+                    <dsEndereco>R dos Navegantes 123, 321</dsEndereco>
+                    <nrEndereco>123</nrEndereco>
+                    <dsComplemento>321</dsComplemento>
+                    <nmBairro>Boa Viagem</nmBairro>
+                    <nmCidadeEstrangeira>Nova York</nmCidadeEstrangeira>
+                    <!-- nmPais obrigatório --><nmPais>Estados Unidos</nmPais>
+                    <nrTelefone>41 99999999</nrTelefone>
+                </tomador>
+                <listaServicos>
+                    <servico>
+                        <!--
+                            Usando nrServico (tsNrServico) ao invés de nrServicoItem/nrServicoSubItem:
+                            - 6 dígitos: item+subitem+desdobro (ex: 010101)
+                            - 9 dígitos: inclui especialização (ex: 010101000)
+                            - ou com pontos: 01.01.01 / 01.01.01.000
+                        -->
+                        <nrServico>01.01.01.000</nrServico>
+
+                        <!-- NBS (tsCodigoNbs: 9 dígitos, ex: 101052100) -->
+                        <cdNbs>101052100</cdNbs>
+                        <!-- vlServico obrigatório --><vlServico>1100.32</vlServico>
+                        <!-- vlAliquota obrigatório --><vlAliquota>0.05</vlAliquota>
+                        <deducao>
+                            <vlDeducao>1.0</vlDeducao>
+                            <!-- dsJustificativaDeducao obrigatório Se informado vlDeducao--><dsJustificativaDeducao>teste</dsJustificativaDeducao>
+                        </deducao>
+                        <!-- vlBaseCalculo obrigatório --><vlBaseCalculo>1100.00</vlBaseCalculo>
+                        <!-- vlIssServico obrigatório --><vlIssServico>55.02</vlIssServico>
+                        <!-- dsDiscriminacaoServico obrigatório --><dsDiscriminacaoServico>
+                        Teste de RPS - Discriminação do serviço (permite caracteres especiais)
+                    </dsDiscriminacaoServico>
+
+                        <!-- Grupo EVENTO (tcEvento) -->
+                        <evento>
+                            <nmEvento>Congresso Internacional</nmEvento>
+                            <dtInicio>2025-01-10</dtInicio>
+                            <dtFim>2025-01-12</dtFim>
+                            <codAtvEv>EVT-INT-001</codAtvEv>
+                            <endereco>
+                                <!--
+                                    Endereço de Obra/Evento (tcEnderecoObraEvento):
+                                    - OU Nacional: informar <cep>
+                                    - OU Exterior: informar <cdEndPost> + <nmCidadeExt> + <nmEstProvRegExt>
+                                -->
+                                <cdEndPost>10001</cdEndPost>
+                                <nmCidadeExt>New York</nmCidadeExt>
+                                <nmEstProvRegExt>NY</nmEstProvRegExt>
+                                <dsEndereco>5th Avenue</dsEndereco>
+                                <nrEndereco>1</nrEndereco>
+                                <dsComplemento>Floor 10</dsComplemento>
+                                <nmBairro>Manhattan</nmBairro>
+                            </endereco>
+                        </evento>
+
+                    </servico>
+                </listaServicos>
+                <!-- vlTotalRps obrigatório --><vlTotalRps>1100.32</vlTotalRps>
+                <!-- vlLiquidoRps obrigatório --><vlLiquidoRps>1100.32</vlLiquidoRps>
+                <retencoes>
+                    <vlCofins>20</vlCofins>
+                    <vlCsll>50</vlCsll>
+                    <vlInss>30</vlInss>
+                    <vlIrrf>40</vlIrrf>
+                    <vlPis>10</vlPis>
+                    <!-- vlIss obrigatório se isIssRetido = 1 --><vlIss>10</vlIss>
+                    <vlAliquotaCofins>2.0</vlAliquotaCofins>
+                    <vlAliquotaCsll>3.0</vlAliquotaCsll>
+                    <vlAliquotaInss>4.0</vlAliquotaInss>
+                    <vlAliquotaIrrf>5.0</vlAliquotaIrrf>
+                    <vlAliquotaPis>6.0</vlAliquotaPis>
+                </retencoes>
+                <dsImpostos>Descrição de impostos. Limite de 500 caracteres</dsImpostos>
+                <vlDesconto>1.00</vlDesconto>
+                <!-- Bloco IBS/CBS (tcIbsCbs) -->
+                <ibsCbs>
+                    <!-- tsFinNfse: 0-Regular -->
+                    <finNFSe>0</finNFSe>
+
+                    <!-- tsIndFinal: 0=Não é operação para consumidor final, 1=É operação para consumidor final -->
+                    <indFinal>1</indFinal>
+
+                    <!-- tsTpOper: 1..5 (operação com ente governamental / imóveis) -->
+                    <tpOper>1</tpOper>
+
+                    <!-- tsTpEnteGov: 1-União, 2-Estado, 3-DF, 4-Município -->
+                    <tpEnteGov>4</tpEnteGov>
+
+                    <!-- tsIndDest: 0=destinatário é o próprio tomador, 1=destinatário diferente -->
+                    <indDest>0</indDest>
+
+                    <!-- tsCClassTrib: 6 dígitos -->
+                    <cClassTrib>200051</cClassTrib>
+
+                    <!-- tsIndOp: código da operação IBS/CBS (1 a 6 dígitos) -->
+                    <indOp>100301</indOp>
+                </ibsCbs>
+            </rps>
+
+            <!-- RPS 4 - SERVIÇO COM OBRA (grupo obra) -->
+            <rps>
+                <!-- nrRps obrigatório --><nrRps>7</nrRps>
+                <!-- nrEmissorRps obrigatório --><nrEmissorRps>1</nrEmissorRps>
+                <!-- dtEmissaoRps obrigatório --><dtEmissaoRps>2009-06-15T10:00:00</dtEmissaoRps>
+                <!-- stRps obrigatório {1=converter, 2=converter e cancelar NFS, 3=cancelar RPS}--><stRps>1</stRps>
+                <!-- tpTributacao obrigatório {1=tributado no munícipio, 2=em outro munícipio, 3=isento/imune, 4=suspenso/decisão judicial}--><tpTributacao>1</tpTributacao>
+                <!-- isIssRetido obrigatório {1=sim, 2=não}--><isIssRetido>2</isIssRetido>
+                <tomador>
+                    <documento>
+                        <!-- nrDocumento obrigatório --><nrDocumento>11111111000111</nrDocumento>
+                        <!-- tpDocumento obrigatório {1=cpf, 2=cnpj, 3=estrangeiro}--><tpDocumento>1</tpDocumento>
+                        <!-- dsDocumentoEstrangeiro obrigatório se tpDocumento=3--><dsDocumentoEstrangeiro></dsDocumentoEstrangeiro>
+                    </documento>
+                    <!-- nmTomador obrigatório --><nmTomador>TOMADOR NACIONAL PARA OBRA</nmTomador>
+                    <dsEmail>contato@gancho.com.br</dsEmail>
+                    <nrInscricaoEstadual>19518744</nrInscricaoEstadual>
+                    <nrInscricaoMunicipal>555</nrInscricaoMunicipal>
+                    <dsEndereco>R dos Navegantes 123, 321</dsEndereco>
+                    <nrEndereco>123</nrEndereco>
+                    <dsComplemento>321</dsComplemento>
+                    <nmBairro>Boa Viagem</nmBairro>
+                    <nrCidadeIbge>261160</nrCidadeIbge>
+                    <nmUf>PR</nmUf>
+                    <!-- nmPais obrigatório --><nmPais>Brasil</nmPais>
+                    <nrCep>51021010</nrCep>
+                    <nrTelefone>41 99999999</nrTelefone>
+                </tomador>
+                <listaServicos>
+                    <servico>
+                        <!--
+                            Usando nrServico (tsNrServico) ao invés de nrServicoItem/nrServicoSubItem:
+                            - 6 dígitos: item+subitem+desdobro (ex: 010101)
+                            - 9 dígitos: inclui especialização (ex: 010101000)
+                            - ou com pontos: 01.01.01 / 01.01.01.000
+                        -->
+                        <nrServico>01.01.01.000</nrServico>
+
+                        <!-- NBS (tsCodigoNbs: 9 dígitos, ex: 101052100) -->
+                        <cdNbs>101052100</cdNbs>
+                        <!-- vlServico obrigatório --><vlServico>1100.32</vlServico>
+                        <!-- vlAliquota obrigatório --><vlAliquota>0.05</vlAliquota>
+                        <deducao>
+                            <vlDeducao>1.0</vlDeducao>
+                            <!-- dsJustificativaDeducao obrigatório Se informado vlDeducao--><dsJustificativaDeducao>teste</dsJustificativaDeducao>
+                        </deducao>
+                        <!-- vlBaseCalculo obrigatório --><vlBaseCalculo>1100.00</vlBaseCalculo>
+                        <!-- vlIssServico obrigatório --><vlIssServico>55.02</vlIssServico>
+                        <!-- dsDiscriminacaoServico obrigatório --><dsDiscriminacaoServico>
+                        Teste de RPS - Discriminação do serviço (permite caracteres especiais)
+                    </dsDiscriminacaoServico>
+
+                        <!-- Grupo OBRA (tcObra) -->
+                        <obra>
+                            <codObra>OBRA-2025-0001</codObra>
+                            <endereco>
+                                <!--
+                                    Endereço de Obra/Evento (tcEnderecoObraEvento):
+                                    - OU Nacional: informar <cep>
+                                    - OU Exterior: informar <cdEndPost> + <nmCidadeExt> + <nmEstProvRegExt>
+                                -->
+                                <cep>80010000</cep>
+                                <dsEndereco>Av. República Argentina</dsEndereco>
+                                <nrEndereco>1234</nrEndereco>
+                                <dsComplemento>Bloco A - Sala 12</dsComplemento>
+                                <nmBairro>Água Verde</nmBairro>
+                            </endereco>
+                        </obra>
+
+                    </servico>
+                </listaServicos>
+                <!-- vlTotalRps obrigatório --><vlTotalRps>1100.32</vlTotalRps>
+                <!-- vlLiquidoRps obrigatório --><vlLiquidoRps>1100.32</vlLiquidoRps>
+                <retencoes>
+                    <vlCofins>20</vlCofins>
+                    <vlCsll>50</vlCsll>
+                    <vlInss>30</vlInss>
+                    <vlIrrf>40</vlIrrf>
+                    <vlPis>10</vlPis>
+                    <!-- vlIss obrigatório se isIssRetido = 1 --><vlIss>10</vlIss>
+                    <vlAliquotaCofins>2.0</vlAliquotaCofins>
+                    <vlAliquotaCsll>3.0</vlAliquotaCsll>
+                    <vlAliquotaInss>4.0</vlAliquotaInss>
+                    <vlAliquotaIrrf>5.0</vlAliquotaIrrf>
+                    <vlAliquotaPis>6.0</vlAliquotaPis>
+                </retencoes>
+                <!-- Bloco IBS/CBS (tcIbsCbs) -->
+                <ibsCbs>
+                    <!-- tsFinNfse: 0-Regular -->
+                    <finNFSe>0</finNFSe>
+
+                    <!-- tsIndFinal: 0=Não é operação para consumidor final, 1=É operação para consumidor final -->
+                    <indFinal>1</indFinal>
+
+                    <!-- tsTpOper: 1..5 (operação com ente governamental / imóveis) -->
+                    <tpOper>1</tpOper>
+
+                    <!-- tsTpEnteGov: 1-União, 2-Estado, 3-DF, 4-Município -->
+                    <tpEnteGov>4</tpEnteGov>
+
+                    <!-- tsIndDest: 0=destinatário é o próprio tomador, 1=destinatário diferente -->
+                    <indDest>0</indDest>
+
+                    <!-- tsCClassTrib: 6 dígitos -->
+                    <cClassTrib>200051</cClassTrib>
+
+                    <!-- tsIndOp: código da operação IBS/CBS (1 a 6 dígitos) -->
+                    <indOp>100301</indOp>
+                </ibsCbs>
+            </rps>
+
+            <!-- RPS 5 - SERVIÇO COM COMÉRCIO EXTERIOR (grupo comercioExterior) -->
+            <rps>
+                <!-- nrRps obrigatório --><nrRps>8</nrRps>
+                <!-- nrEmissorRps obrigatório --><nrEmissorRps>1</nrEmissorRps>
+                <!-- dtEmissaoRps obrigatório --><dtEmissaoRps>2009-06-15T10:00:00</dtEmissaoRps>
+                <!-- stRps obrigatório {1=converter, 2=converter e cancelar NFS, 3=cancelar RPS}--><stRps>1</stRps>
+                <!-- tpTributacao obrigatório {1=tributado no munícipio, 2=em outro munícipio, 3=isento/imune, 4=suspenso/decisão judicial}--><tpTributacao>1</tpTributacao>
+                <!-- isIssRetido obrigatório {1=sim, 2=não}--><isIssRetido>2</isIssRetido>
+                <tomador>
+                    <documento>
+                        <!-- nrDocumento obrigatório --><nrDocumento>12345</nrDocumento>
+                        <!-- tpDocumento obrigatório {1=cpf, 2=cnpj, 3=estrangeiro}--><tpDocumento>3</tpDocumento>
+                        <!-- dsDocumentoEstrangeiro obrigatório se tpDocumento=3--><dsDocumentoEstrangeiro>ID</dsDocumentoEstrangeiro>
+                    </documento>
+                    <!-- nmTomador obrigatório --><nmTomador>TOMADOR ESTRANGEIRO 2 COM DOCUMENTO</nmTomador>
+                    <dsEmail>contato@gancho.com.br</dsEmail>
+                    <nrInscricaoEstadual>19518744</nrInscricaoEstadual>
+                    <dsEndereco>R dos Navegantes 123, 321</dsEndereco>
+                    <nrEndereco>123</nrEndereco>
+                    <dsComplemento>321</dsComplemento>
+                    <nmBairro>Boa Viagem</nmBairro>
+                    <nmCidadeEstrangeira>Nova York</nmCidadeEstrangeira>
+                    <!-- nmPais obrigatório --><nmPais>Estados Unidos</nmPais>
+                    <nrTelefone>41 99999999</nrTelefone>
+                </tomador>
+                <listaServicos>
+                    <servico>
+                        <!--
+                            Usando nrServico (tsNrServico) ao invés de nrServicoItem/nrServicoSubItem:
+                            - 6 dígitos: item+subitem+desdobro (ex: 010101)
+                            - 9 dígitos: inclui especialização (ex: 010101000)
+                            - ou com pontos: 01.01.01 / 01.01.01.000
+                        -->
+                        <nrServico>01.01.01.000</nrServico>
+
+                        <!-- NBS (tsCodigoNbs: 9 dígitos, ex: 101052100) -->
+                        <cdNbs>101052100</cdNbs>
+                        <!-- vlServico obrigatório --><vlServico>1100.32</vlServico>
+                        <!-- vlAliquota obrigatório --><vlAliquota>0.05</vlAliquota>
+                        <deducao>
+                            <vlDeducao>1.0</vlDeducao>
+                            <!-- dsJustificativaDeducao obrigatório Se informado vlDeducao--><dsJustificativaDeducao>teste</dsJustificativaDeducao>
+                        </deducao>
+                        <!-- vlBaseCalculo obrigatório --><vlBaseCalculo>1100.00</vlBaseCalculo>
+                        <!-- vlIssServico obrigatório --><vlIssServico>55.02</vlIssServico>
+                        <!-- dsDiscriminacaoServico obrigatório --><dsDiscriminacaoServico>
+                        Teste de RPS - Discriminação do serviço (permite caracteres especiais)
+                    </dsDiscriminacaoServico>
+
+                        <!-- Grupo COMÉRCIO EXTERIOR (tcComercioExterior) -->
+                        <comercioExterior>
+                            <mdPrestacao>4</mdPrestacao>
+                            <vincPrest>0</vincPrest>
+                            <tpMoeda>USD</tpMoeda>
+                            <vServMoeda>900.00</vServMoeda>
+                            <mecAFComexP>01</mecAFComexP>
+                            <mecAFComexT>02</mecAFComexT>
+                            <movTempBens>1</movTempBens>
+                            <nDI>123456789012</nDI>
+                            <nRE>123456789012</nRE>
+                            <mdic>1</mdic>
+                        </comercioExterior>
+
+                    </servico>
+                </listaServicos>
+                <!-- vlTotalRps obrigatório --><vlTotalRps>1100.32</vlTotalRps>
+                <!-- vlLiquidoRps obrigatório --><vlLiquidoRps>1100.32</vlLiquidoRps>
+                <retencoes>
+                    <vlCofins>20</vlCofins>
+                    <vlCsll>50</vlCsll>
+                    <vlInss>30</vlInss>
+                    <vlIrrf>40</vlIrrf>
+                    <vlPis>10</vlPis>
+                    <!-- vlIss obrigatório se isIssRetido = 1 --><vlIss>10</vlIss>
+                    <vlAliquotaCofins>2.0</vlAliquotaCofins>
+                    <vlAliquotaCsll>3.0</vlAliquotaCsll>
+                    <vlAliquotaInss>4.0</vlAliquotaInss>
+                    <vlAliquotaIrrf>5.0</vlAliquotaIrrf>
+                    <vlAliquotaPis>6.0</vlAliquotaPis>
+                </retencoes>
+                <dsImpostos>Descrição de impostos. Limite de 500 caracteres</dsImpostos>
+                <vlDesconto>1.00</vlDesconto>
+                <!-- Bloco IBS/CBS (tcIbsCbs) -->
+                <ibsCbs>
+                    <!-- tsFinNfse: 0-Regular -->
+                    <finNFSe>0</finNFSe>
+
+                    <!-- tsIndFinal: 0=Não é operação para consumidor final, 1=É operação para consumidor final -->
+                    <indFinal>1</indFinal>
+
+                    <!-- tsTpOper: 1..5 (operação com ente governamental / imóveis) -->
+                    <tpOper>1</tpOper>
+
+                    <!-- tsTpEnteGov: 1-União, 2-Estado, 3-DF, 4-Município -->
+                    <tpEnteGov>4</tpEnteGov>
+
+                    <!-- tsIndDest: 0=destinatário é o próprio tomador, 1=destinatário diferente -->
+                    <indDest>0</indDest>
+
+                    <!-- tsCClassTrib: 6 dígitos -->
+                    <cClassTrib>200051</cClassTrib>
+
+                    <!-- tsIndOp: código da operação IBS/CBS (1 a 6 dígitos) -->
+                    <indOp>100301</indOp>
+                </ibsCbs>
+            </rps>
+
+        </listaRps>
+    </lote>
+</es:enviarLoteRpsEnvio>

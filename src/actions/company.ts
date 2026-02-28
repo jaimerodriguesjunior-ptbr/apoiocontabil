@@ -26,10 +26,12 @@ type CompanyData = {
     csc_id_homologation?: string;
     nfse_login?: string;
     nfse_password?: string;
+    aliquota_iss?: string;
+    codigo_servico?: string;
 };
 
 export async function registerCompanyInNuvemFiscal(data: CompanyData) {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     try {
         if (!data.cpf_cnpj || !data.razao_social || !data.logradouro || !data.codigo_municipio_ibge) {
@@ -59,7 +61,9 @@ export async function registerCompanyInNuvemFiscal(data: CompanyData) {
             csc_token_production: data.csc_token_production,
             csc_token_homologation: data.csc_token_homologation,
             nfse_login: data.nfse_login,
-            nfse_password: data.nfse_password
+            nfse_password: data.nfse_password,
+            aliquota_iss: data.aliquota_iss ? Number(data.aliquota_iss) : 0,
+            codigo_servico: data.codigo_servico || '2.01'
         };
 
         const { error: dbError } = await supabase
@@ -68,13 +72,16 @@ export async function registerCompanyInNuvemFiscal(data: CompanyData) {
 
         if (dbError) throw new Error(`Erro ao salvar no banco: ${dbError.message}`);
 
+        const results: any = {};
+
         // 2. Configure in Nuvem Fiscal Environments
         const configureEnvironment = async (env: 'production' | 'homologation') => {
             try {
                 const token = await getNuvemFiscalToken(env);
-                const baseUrl = env === 'production'
+                const rawUrl = env === 'production'
                     ? (process.env.NUVEMFISCAL_PROD_URL || "https://api.nuvemfiscal.com.br")
                     : (process.env.NUVEMFISCAL_HOM_URL || "https://api.sandbox.nuvemfiscal.com.br");
+                const baseUrl = rawUrl.replace(/\/+$/, ''); // Remove trailing slash
 
                 console.log(`[NuvemFiscal] Configurando ambiente: ${env.toUpperCase()} em ${baseUrl}`);
 
@@ -84,6 +91,7 @@ export async function registerCompanyInNuvemFiscal(data: CompanyData) {
                     nome_razao_social: data.razao_social,
                     nome_fantasia: data.nome_fantasia,
                     email: data.email_contato,
+                    fone: data.telefone,
                     inscricao_estadual: data.inscricao_estadual,
                     inscricao_municipal: data.inscricao_municipal,
                     endereco: {
@@ -91,13 +99,12 @@ export async function registerCompanyInNuvemFiscal(data: CompanyData) {
                         numero: data.numero,
                         complemento: data.complemento,
                         bairro: data.bairro,
-                        codigo_municipio: data.codigo_municipio_ibge,
+                        codigo_municipio: data.codigo_municipio_ibge.replace(/\D/g, ""),
                         cidade: data.cidade,
                         uf: data.uf,
                         cep: data.cep.replace(/\D/g, ""),
                         pais: "BRASIL"
-                    },
-                    regime_tributario: Number(data.regime_tributario) || 1
+                    }
                 };
 
                 const resEmpresa = await fetch(`${baseUrl}/empresas`, {
@@ -107,71 +114,98 @@ export async function registerCompanyInNuvemFiscal(data: CompanyData) {
                 });
 
                 if (!resEmpresa.ok) {
-                    if (resEmpresa.status === 409 || resEmpresa.status === 400) {
-                        console.log(`[NuvemFiscal] Empresa já existe em ${env}, atualizando...`);
-                        await fetch(`${baseUrl}/empresas/${nfPayload.cpf_cnpj}`, {
-                            method: "PUT",
-                            headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-                            body: JSON.stringify(nfPayload)
-                        });
-                    } else {
-                        console.error(`[NuvemFiscal] Erro ao criar empresa em ${env}:`, await resEmpresa.text());
+                    console.log(`[NuvemFiscal] POST falhou (${resEmpresa.status}) em ${env}, tentando PUT...`);
+                    const resPut = await fetch(`${baseUrl}/empresas/${nfPayload.cpf_cnpj}`, {
+                        method: "PUT",
+                        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+                        body: JSON.stringify(nfPayload)
+                    });
+                    if (!resPut.ok) {
+                        const errorText = await resPut.text();
+                        console.error(`[NuvemFiscal] PUT também falhou em ${env}:`, errorText);
+                        results[env] = { success: false, step: 'register', error: errorText };
+                        return;
                     }
                 }
 
-                // B. Configure NFC-e (Optional for this test, but good to have)
-                const cscId = env === 'production' ? data.csc_id_production : data.csc_id_homologation;
-                const cscToken = env === 'production' ? data.csc_token_production : data.csc_token_homologation;
+                // C. Configure NFS-e (always configure, credentials optional)
+                console.log(`[NuvemFiscal] Configurando NFS-e em ${env}...`);
 
-                if (cscId && cscToken) {
-                    console.log(`[NuvemFiscal] Configurando NFC-e em ${env}...`);
-                    const nfcePayload = {
-                        ambiente: env === 'production' ? "producao" : "homologacao",
-                        sefaz: { id_csc: Number(cscId), csc: cscToken }
-                    };
-
-                    await fetch(`${baseUrl}/empresas/${nfPayload.cpf_cnpj}/nfce`, {
-                        method: "PUT",
-                        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-                        body: JSON.stringify(nfcePayload)
+                // GET current config to preserve RPS numero (avoid resetting counter)
+                let currentRpsNumero = 1; // Default only for first-time setup
+                let currentRpsSerie = "1";
+                try {
+                    const resCurrentConfig = await fetch(`${baseUrl}/empresas/${nfPayload.cpf_cnpj}/nfse`, {
+                        method: "GET",
+                        headers: { "Authorization": `Bearer ${token}` }
                     });
+                    if (resCurrentConfig.ok) {
+                        const currentConfig = await resCurrentConfig.json();
+                        if (currentConfig?.rps?.numero) {
+                            currentRpsNumero = currentConfig.rps.numero;
+                            console.log(`[NuvemFiscal] RPS atual na Nuvem Fiscal (${env}): Serie=${currentConfig.rps.serie}, Numero=${currentRpsNumero}, Lote=${currentConfig.rps.lote}`);
+                        }
+                        if (currentConfig?.rps?.serie) {
+                            currentRpsSerie = currentConfig.rps.serie;
+                        }
+                    } else {
+                        console.log(`[NuvemFiscal] Nenhuma config NFS-e existente em ${env} (${resCurrentConfig.status}). Usando defaults.`);
+                    }
+                } catch (e) {
+                    console.log(`[NuvemFiscal] Erro ao buscar config atual em ${env}, usando defaults:`, e);
                 }
 
-                // C. Configure NFS-e
+                const nfsePayload: any = {
+                    ambiente: env === 'production' ? "producao" : "homologacao",
+                    regTrib: {
+                        opSimpNac: 1, // 1 = Simples Nacional
+                        regApTribSN: 1, // 1 = Microempresa Municipal (Sem Dedução) / Padrão
+                        regEspTrib: 0
+                    },
+                    rps: {
+                        lote: Math.floor(Date.now() / 1000), // Lote novo a cada save (instrução Equiplano)
+                        serie: currentRpsSerie,
+                        numero: currentRpsNumero
+                    },
+                    incentivo_fiscal: false
+                };
                 if (data.nfse_login && data.nfse_password) {
-                    console.log(`[NuvemFiscal] Configurando NFS-e em ${env}...`);
-                    const nfsePayload = {
-                        ambiente: env === 'production' ? "producao" : "homologacao",
-                        prefeitura: {
-                            login: data.nfse_login,
-                            senha: data.nfse_password
-                        },
-                        // Toledo default configuration might require more details, but starting with login/pass
+                    nfsePayload.prefeitura = {
+                        login: data.nfse_login,
+                        senha: data.nfse_password
                     };
+                }
 
-                    const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
+                const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
 
-                    let resNfse = await fetch(`${baseUrl}/empresas/${nfPayload.cpf_cnpj}/nfse`, {
-                        method: "PUT",
+                // Try updating first (PUT)
+                let resNfse = await fetch(`${baseUrl}/empresas/${nfPayload.cpf_cnpj}/nfse`, {
+                    method: "PUT",
+                    headers,
+                    body: JSON.stringify(nfsePayload)
+                });
+
+                // If not found (404), try creating (POST)
+                if (!resNfse.ok && resNfse.status === 404) {
+                    resNfse = await fetch(`${baseUrl}/empresas/${nfPayload.cpf_cnpj}/nfse`, {
+                        method: "POST",
                         headers,
                         body: JSON.stringify(nfsePayload)
                     });
-
-                    if (!resNfse.ok && resNfse.status === 404) {
-                        resNfse = await fetch(`${baseUrl}/empresas/${nfPayload.cpf_cnpj}/nfse`, {
-                            method: "POST",
-                            headers,
-                            body: JSON.stringify(nfsePayload)
-                        });
-                    }
-
-                    if (!resNfse.ok) {
-                        console.error(`[NuvemFiscal] Erro NFS-e ${env}:`, await resNfse.text());
-                    }
                 }
+
+                if (!resNfse.ok) {
+                    const errorText = await resNfse.text();
+                    console.error(`[NuvemFiscal] Erro NFS-e ${env}:`, errorText);
+                    results[env] = { success: false, step: 'nfse_config', error: errorText };
+                    return;
+                }
+
+                results[env] = { success: true };
 
             } catch (e: any) {
                 console.error(`[NuvemFiscal] Erro fatal no ambiente ${env}:`, e.message);
+                results[env] = { success: false, error: e.message };
             }
         };
 
@@ -180,7 +214,7 @@ export async function registerCompanyInNuvemFiscal(data: CompanyData) {
             configureEnvironment('homologation')
         ]);
 
-        return { success: true, message: "Empresa registrada e configurada!" };
+        return { success: true, message: "Processo concluído.", results };
 
     } catch (error: any) {
         console.error("Erro em registerCompanyInNuvemFiscal:", error);

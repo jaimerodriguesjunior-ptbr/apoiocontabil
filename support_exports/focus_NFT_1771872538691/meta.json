@@ -1,0 +1,22 @@
+﻿{
+    "generated_at_utc":  "2026-02-23T19:15:25Z",
+    "environment":  "homologacao",
+    "provider":  "Focus NFe",
+    "reference":  "NFT_1771872538691",
+    "endpoint_json":  "https://homologacao.focusnfe.com.br/v2/nfse/NFT_1771872538691",
+    "endpoint_xml":  "https://homologacao.focusnfe.com.br/v2/nfse/NFT_1771872538691.xml",
+    "status_json":  "HTTP/1.1 200 OK",
+    "status_xml":  "HTTP/1.1 200 OK",
+    "x_request_id_json":  "X-Request-Id: 264b5c41-b308-415f-9ec7-fba7cf946ea1",
+    "x_request_id_xml":  "X-Request-Id: 190957da-ca62-40e8-8aa9-74fc95d83095",
+    "status_field":  "erro_autorizacao",
+    "cnpj_prestador":  "13167722000187",
+    "numero_rps":  "5001",
+    "serie_rps":  "99",
+    "has_caminho_xml_nota_fiscal":  false,
+    "caminho_xml_nota_fiscal":  null,
+    "xml_endpoint_returned_xml":  false,
+    "classification":  "xml_indisponivel_por_status_erro_autorizacao",
+    "downloaded_xml_path":  null,
+    "downloaded_xml_status":  null
+}

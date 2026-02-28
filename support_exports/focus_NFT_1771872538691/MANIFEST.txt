@@ -1,0 +1,15 @@
+﻿focus_NFT_1771872538691 package
+generated_at_utc: 2026-02-23T19:15:25Z
+classification: xml_indisponivel_por_status_erro_autorizacao
+
+files:
+- consulta_body.json
+- consulta_headers.txt
+- consulta_xml_body.txt
+- consulta_xml_headers.txt
+- scenario_invalid_token_headers.txt
+- scenario_invalid_token_body.txt
+- scenario_ref_inexistente_headers.txt
+- scenario_ref_inexistente_body.txt
+- meta.json
+- focus_support_draft.md

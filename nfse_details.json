@@ -1,0 +1,17 @@
+{
+  "id": "nfs_3a1fa1c36c1a443099066aaa60eede22",
+  "created_at": "2026-02-23T12:18:56.123Z",
+  "status": "erro",
+  "ambiente": "homologacao",
+  "referencia": "teste-amplotec-1771849136177",
+  "DPS": {
+    "serie": "1",
+    "nDPS": "1"
+  },
+  "mensagens": [
+    {
+      "codigo": "8011",
+      "descricao": "O RPS informado já foi convertido em NFS. Utilize o serviço esConsultarNfsePorRps antes de enviar o RPS."
+    }
+  ]
+}

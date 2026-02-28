@@ -12,46 +12,60 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Arquivo, CNPJ ou Senha faltando." }, { status: 400 });
         }
 
-        // 1. Get Token (Platform Credentials)
-        const token = await getNuvemFiscalToken();
-
-        // 2. Prepare Base64 Certificate
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const base64Cert = buffer.toString("base64");
-
-        // 3. Send to Nuvem Fiscal (Environment = Production by default for certs, usually)
-        // Note: Nuvem Fiscal uses the same endpoint for certs regardless of environment, 
-        // but we should respect the environment variable if we want to test in sandbox.
-        // However, certs are usually unique per company. 
-        // We will default to PROD URL from env or fallback to standard API.
-
-        const baseUrl = process.env.NUVEMFISCAL_PROD_URL || "https://api.nuvemfiscal.com.br";
-
-        // Clean CNPJ
         const cleanCnpj = cnpj.replace(/\D/g, "");
 
-        console.log(`[API] Uploading cert for ${cleanCnpj} to ${baseUrl}`);
+        const environments = ['production', 'homologation'] as const;
+        const results = [];
 
-        const response = await fetch(`${baseUrl}/empresas/${cleanCnpj}/certificado`, {
-            method: "PUT",
-            headers: {
-                "Authorization": `Bearer ${token}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                certificado: base64Cert,
-                password: password
-            })
-        });
+        for (const env of environments) {
+            try {
+                // 1. Get Token for specific env
+                const token = await getNuvemFiscalToken(env);
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error("[API] Error uploading cert:", errorData);
-            return NextResponse.json({ error: errorData }, { status: response.status });
+                // 2. Determine URL
+                const rawUrl = env === 'production'
+                    ? (process.env.NUVEMFISCAL_PROD_URL || "https://api.nuvemfiscal.com.br")
+                    : (process.env.NUVEMFISCAL_HOM_URL || "https://api.sandbox.nuvemfiscal.com.br");
+                const baseUrl = rawUrl.replace(/\/+$/, ''); // Remove trailing slash
+
+                console.log(`[API] Uploading cert for ${cleanCnpj} to ${env.toUpperCase()} (${baseUrl})`);
+
+                const response = await fetch(`${baseUrl}/empresas/${cleanCnpj}/certificado`, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        certificado: base64Cert,
+                        password: password
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error(`[API] Error uploading to ${env}:`, errorData);
+                    results.push({ env, success: false, error: errorData });
+                } else {
+                    results.push({ env, success: true });
+                }
+
+            } catch (e: any) {
+                console.error(`[API] Fatal error for ${env}:`, e);
+                results.push({ env, success: false, error: e.message });
+            }
         }
 
-        return NextResponse.json({ success: true });
+        // Check if at least one succeeded
+        const anySuccess = results.some(r => r.success);
+        if (anySuccess) {
+            return NextResponse.json({ success: true, results });
+        } else {
+            return NextResponse.json({ error: { message: "Falha no upload para ambos os ambientes.", details: results } }, { status: 500 });
+        }
 
     } catch (error: any) {
         console.error("Erro no upload do certificado:", error);

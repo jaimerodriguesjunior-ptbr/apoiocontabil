@@ -1,0 +1,19 @@
+{
+  "cnpj_prestador": "13167722000187",
+  "ref": "NFT_1771872538691",
+  "numero_rps": "5001",
+  "serie_rps": "99",
+  "status": "erro_autorizacao",
+  "erros": [
+    {
+      "codigo": "8011",
+      "mensagem": "O RPS informado já foi convertido em NFS. Utilize o serviço esConsultarNfsePorRps antes de enviar o RPS.",
+      "correcao": null
+    },
+    {
+      "codigo": "1601",
+      "mensagem": "O RPS informado não existe.",
+      "correcao": null
+    }
+  ]
+}

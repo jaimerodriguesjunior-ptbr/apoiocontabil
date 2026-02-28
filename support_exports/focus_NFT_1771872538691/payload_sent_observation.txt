@@ -1,0 +1,13 @@
+﻿payload_sent_observation
+
+A API de consulta da Focus para a referência NFT_1771872538691 não retorna o payload de emissão enviado e não retorna caminho_xml_nota_fiscal para status de erro_autorizacao.
+
+Por isso, o pacote inclui:
+- retorno completo da consulta
+- headers com X-Request-Id
+- testes de cenário (token inválido e referência inexistente)
+
+E solicita no draft:
+- raw SOAP/XML enviado pela Focus
+- raw response do provedor municipal
+- correlação interna da Focus
