@@ -39,3 +39,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# arquivos de debug/teste locais
+debug_ref.mjs
+get-xml.js
+test-status-nuvem.js
+test-status-nuvem2.js
+test-status-nuvem3.js
+
+# arquivos temporários e de suporte
+support_exports/
+.focus/
+*.zip
+EnviaLoteRps_REAL.xml
+
+# imagens/docs locais
+*.jpg
+*.jpeg
+*.png
+!public/**
