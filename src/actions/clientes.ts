@@ -1,20 +1,43 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { requireCompanyOperatorContext } from "@/lib/auth-context";
 
 async function getOrgId() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Não autenticado");
+  const context = await requireCompanyOperatorContext();
+  return { supabase: context.supabase, orgId: context.orgId as string };
+}
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id")
-    .eq("id", user.id)
-    .single();
+type ClientServiceRow = {
+  id: string;
+  descricao: string;
+  valor_mensal?: number | null;
+  codigo_servico?: string | null;
+  cnae?: string | null;
+  aliquota_iss?: number | null;
+  ativo?: boolean | null;
+};
 
-  return { supabase, orgId: profile?.organization_id as string };
+type ClientRow = {
+  id: string;
+  nome: string;
+  cpf_cnpj?: string | null;
+  client_services?: ClientServiceRow[] | null;
+  [key: string]: unknown;
+};
+
+type InvoiceSummary = {
+  client_id: string | null;
+  status: string | null;
+};
+
+function isMissingBatchOriginColumn(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "42703"
+  );
 }
 
 export async function getClients() {
@@ -57,10 +80,77 @@ export async function getClientsWithServices() {
 
   if (error) throw error;
 
-  return (data || []).map((c: any) => ({
+  return ((data || []) as ClientRow[]).map((c) => ({
     ...c,
-    client_services: (c.client_services || []).filter((s: any) => s.ativo),
+    client_services: (c.client_services || []).filter((s) => s.ativo),
   }));
+}
+
+export async function getClientsForBatch(mesReferencia: string) {
+  const { supabase, orgId } = await getOrgId();
+
+  const [{ data: clients, error: clientsError }, { data: invoices, error: invoicesError }] =
+    await Promise.all([
+      supabase
+        .from("clients")
+        .select(`*, client_services(*)`)
+        .eq("organization_id", orgId)
+        .eq("ativo", true)
+        .order("nome"),
+      supabase
+        .from("fiscal_invoices")
+        .select("client_id, status")
+        .eq("organization_id", orgId)
+        .eq("mes_referencia", mesReferencia)
+        .eq("emission_origin", "batch"),
+    ]);
+
+  if (clientsError) throw clientsError;
+  if (invoicesError) {
+    if (isMissingBatchOriginColumn(invoicesError)) {
+      throw new Error("Banco desatualizado: execute migration_batch_origin.sql no Supabase antes de usar emissão em lote.");
+    }
+
+    throw invoicesError;
+  }
+
+  const allClients = (clients || []) as ClientRow[];
+  const allInvoices = (invoices || []) as InvoiceSummary[];
+
+  const emittedClientIds = new Set(
+    allInvoices
+      .filter((invoice) => !["error", "cancelled"].includes(invoice.status || ""))
+      .map((invoice) => invoice.client_id)
+  );
+
+  const clientsWithServices = allClients.filter(
+    (c) => (c.client_services || []).some((s) => s.ativo)
+  );
+
+  const available = allClients
+    .filter((client) => !emittedClientIds.has(client.id))
+    .map((client) => {
+      const activeServices = (client.client_services || []).filter((service) => service.ativo);
+      const service = activeServices[0] || null;
+
+      return {
+        ...client,
+        batch_service: service
+          ? {
+              id: service.id,
+              descricao: service.descricao,
+              valor_mensal: service.valor_mensal,
+            }
+          : null,
+      };
+    });
+
+  return {
+    clients: available,
+    totalClients: allClients.length,
+    totalWithServices: clientsWithServices.length,
+    alreadyEmitted: emittedClientIds.size,
+  };
 }
 
 type ServiceInput = {
@@ -154,6 +244,68 @@ export async function saveClient(data: ClientInput) {
 
   revalidatePath("/clientes");
   return { success: true, id: clientId };
+}
+
+export async function saveClientBatchService(data: {
+  clientId: string;
+  descricao: string;
+  valorMensal: number;
+  codigoServico?: string | null;
+  cnae?: string | null;
+  aliquotaIss?: number | null;
+}) {
+  const { supabase, orgId } = await getOrgId();
+  if (!orgId) return { error: "Organizacao nao encontrada" };
+
+  const { data: client } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("id", data.clientId)
+    .eq("organization_id", orgId)
+    .eq("ativo", true)
+    .single();
+
+  if (!client) return { error: "Cliente nao encontrado." };
+
+  const { data: service } = await supabase
+    .from("client_services")
+    .select("id")
+    .eq("client_id", data.clientId)
+    .eq("organization_id", orgId)
+    .eq("ativo", true)
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+
+  const payload = {
+    descricao: data.descricao,
+    valor_mensal: data.valorMensal,
+    codigo_servico: data.codigoServico || null,
+    cnae: data.cnae || null,
+    aliquota_iss: data.aliquotaIss ?? null,
+  };
+
+  if (service?.id) {
+    const { error } = await supabase
+      .from("client_services")
+      .update(payload)
+      .eq("id", service.id)
+      .eq("organization_id", orgId);
+
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await supabase.from("client_services").insert({
+      organization_id: orgId,
+      client_id: data.clientId,
+      ...payload,
+    });
+
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath("/lote");
+  revalidatePath("/clientes");
+  return { success: true };
 }
 
 export async function deleteClient(id: string) {

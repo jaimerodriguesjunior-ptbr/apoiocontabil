@@ -1,11 +1,37 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/cadastro"];
-const PROTECTED_PREFIXES = ["/dashboard", "/clientes", "/emitir", "/lote", "/notas", "/empresa"];
+const PUBLIC_PATHS = ["/login"];
+const PROTECTED_PREFIXES = ["/dashboard", "/empresas", "/catalogo", "/despesas", "/clientes", "/emitir", "/lote", "/notas", "/empresa"];
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+
+  let supabaseResponse = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  const isPublicAuth = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isProtected =
+    pathname === "/" ||
+    PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
+
+  if (!hasAuthCookie && isPublicAuth) {
+    return supabaseResponse;
+  }
+
+  if (!hasAuthCookie && isProtected) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +43,11 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = NextResponse.next({
+            request: {
+              headers: requestHeaders,
+            },
+          });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -27,11 +57,6 @@ export async function updateSession(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const pathname = request.nextUrl.pathname;
-
-  const isProtected =
-    pathname === "/" ||
-    PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
@@ -39,10 +64,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const isPublicAuth = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   if (user && isPublicAuth) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 

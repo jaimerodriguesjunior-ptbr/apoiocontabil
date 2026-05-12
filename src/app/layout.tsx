@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NF Fácil - Emissor de NFS-e",
-  description: "Sistema de emissão de notas fiscais de serviço",
+  title: "Amplotec Contabilidade",
+  description: "Portal de apoio para clientes da contabilidade",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

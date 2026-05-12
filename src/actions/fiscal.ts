@@ -3,19 +3,11 @@
 import { createClient } from "@/utils/supabase/server";
 import { getNuvemFiscalToken } from "@/lib/nuvemfiscal";
 import { revalidatePath } from "next/cache";
+import { requireCompanyOperatorContext } from "@/lib/auth-context";
 
 async function getOrgId() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Não autenticado");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id")
-    .eq("id", user.id)
-    .single();
-
-  return { supabase, orgId: profile?.organization_id as string, userId: user.id };
+  const context = await requireCompanyOperatorContext();
+  return { supabase: context.supabase, orgId: context.orgId as string, userId: context.userId };
 }
 
 function toMoneyNumber(value: unknown, fallback = 0): number {
@@ -29,6 +21,39 @@ function toMoneyNumber(value: unknown, fallback = 0): number {
     if (Number.isFinite(parsed)) return Number(parsed.toFixed(2));
   }
   return fallback;
+}
+
+function onlyDigits(value: unknown): string {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function hasValidCpfOrCnpj(value: unknown): boolean {
+  const doc = onlyDigits(value);
+
+  if (doc.length === 11) {
+    if (/^(\d)\1+$/.test(doc)) return false;
+    const calc = (slice: string, factor: number) => {
+      const total = slice.split("").reduce((sum, digit) => sum + Number(digit) * factor--, 0);
+      const rest = (total * 10) % 11;
+      return rest === 10 ? 0 : rest;
+    };
+    return calc(doc.slice(0, 9), 10) === Number(doc[9]) && calc(doc.slice(0, 10), 11) === Number(doc[10]);
+  }
+
+  if (doc.length === 14) {
+    if (/^(\d)\1+$/.test(doc)) return false;
+    const calc = (slice: string, factors: number[]) => {
+      const total = slice.split("").reduce((sum, digit, index) => sum + Number(digit) * factors[index], 0);
+      const rest = total % 11;
+      return rest < 2 ? 0 : 11 - rest;
+    };
+    return (
+      calc(doc.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(doc[12]) &&
+      calc(doc.slice(0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(doc[13])
+    );
+  }
+
+  return false;
 }
 
 function getSaoPauloDate(customDate?: string) {
@@ -64,13 +89,40 @@ type EmitirParams = {
   clientId: string;
   descricao: string;
   valor: number;
-  codigoServico?: string;
-  cnae?: string;
-  aliquotaIss?: number;
   environment?: "production" | "homologation";
   dataCompetencia?: string;
   mesReferencia?: string;
+  emissionOrigin?: "single" | "batch";
 };
+
+type NuvemResult = {
+  id?: string;
+  numero?: string;
+  serie?: string;
+  error?: { message?: string };
+  status?: string;
+  mensagens?: Array<{ codigo?: string | number; descricao?: string }>;
+  motivo_status?: string;
+  chave?: string;
+  codigo_verificacao?: string;
+  xml_url?: string;
+  pdf_url?: string;
+  link_url?: string;
+  [key: string]: unknown;
+};
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isMissingBatchOriginColumn(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "42703"
+  );
+}
 
 export async function emitirNFSe(params: EmitirParams) {
   const { supabase, orgId } = await getOrgId();
@@ -81,12 +133,10 @@ export async function emitirNFSe(params: EmitirParams) {
       clientId,
       descricao,
       valor,
-      codigoServico,
-      cnae,
-      aliquotaIss,
       environment,
       dataCompetencia,
       mesReferencia,
+      emissionOrigin = "single",
     } = params;
 
     // Buscar empresa
@@ -108,10 +158,46 @@ export async function emitirNFSe(params: EmitirParams) {
 
     if (!client) throw new Error("Cliente não encontrado.");
 
+    const { dhEmi, dCompet, mesReferencia: mesAuto } = getSaoPauloDate(dataCompetencia);
+    const mesFinal = mesReferencia || mesAuto;
+    const cleanDoc = onlyDigits(client.cpf_cnpj);
+
+    if (!hasValidCpfOrCnpj(cleanDoc)) {
+      throw new Error("CPF/CNPJ do cliente ausente ou invalido.");
+    }
+
+    if (emissionOrigin === "batch") {
+      const { data: existingBatchInvoice, error: existingBatchError } = await supabase
+        .from("fiscal_invoices")
+        .select("id")
+        .eq("organization_id", orgId)
+        .eq("client_id", clientId)
+        .eq("mes_referencia", mesFinal)
+        .eq("emission_origin", "batch")
+        .not("status", "in", '("error","cancelled")')
+        .limit(1)
+        .maybeSingle();
+
+      if (existingBatchError) {
+        if (isMissingBatchOriginColumn(existingBatchError)) {
+          throw new Error("Banco desatualizado: execute migration_batch_origin.sql no Supabase antes de emitir em lote.");
+        }
+
+        throw existingBatchError;
+      }
+
+      if (existingBatchInvoice) {
+        throw new Error("Este cliente ja possui nota enviada em lote neste mes.");
+      }
+    }
+
     const env = environment || company.environment || "production";
-    const codServico = codigoServico || company.codigo_servico_padrao || "140101";
-    const cnaeCode = cnae || company.cnae_padrao || "4520007";
-    const aliquota = aliquotaIss ?? company.aliquota_iss_padrao ?? 3.0;
+    const codServico = String(company.codigo_servico_padrao || "").trim();
+    const codServicoDigits = onlyDigits(codServico);
+    if (!codServicoDigits) throw new Error("Codigo de servico nao informado. Configure em Minha Empresa antes de emitir.");
+    if (!codServico) throw new Error("Código de serviço não informado. Configure em Minha Empresa antes de emitir.");
+    const cnaeCode = company.cnae_padrao || "";
+    const aliquota = company.aliquota_iss_padrao ?? 3.0;
     const totalFinal = Number(toMoneyNumber(valor, 0).toFixed(2));
 
     if (totalFinal <= 0) throw new Error("Valor deve ser maior que zero.");
@@ -122,19 +208,21 @@ export async function emitirNFSe(params: EmitirParams) {
         ? process.env.NUVEMFISCAL_PROD_URL || "https://api.nuvemfiscal.com.br"
         : process.env.NUVEMFISCAL_HOM_URL || "https://api.sandbox.nuvemfiscal.com.br";
 
-    const cnpj = (company.cnpj || company.cpf_cnpj || "").replace(/\D/g, "");
-    const inscricaoMunicipal = String(company.inscricao_municipal || company.nfse_login || "")
+    const cnpj = onlyDigits(company.cnpj || company.cpf_cnpj);
+    const inscricaoMunicipal = String(company.inscricao_municipal || "")
       .replace(/\D/g, "")
       .trim();
-
-    const ibgeMunicipio = String(company.codigo_municipio_ibge || "4108809").replace(/\D/g, "") || "4108809";
+    const ibgeMunicipio = onlyDigits(company.codigo_municipio_ibge || "4108809") || "4108809";
     const isGuaira = ibgeMunicipio === "4108809";
     const isToledo = ibgeMunicipio === "4127700";
+    const defaultMunicipioCep = isToledo ? "85900000" : isGuaira ? "85980000" : undefined;
+    const companyCep = onlyDigits(company.cep);
+    const companyCepToSend = companyCep.length === 8 ? companyCep : defaultMunicipioCep;
 
     if (!isToledo && !company.nfse_login) {
       throw new Error("Login/senha da prefeitura não configurados. Acesse Minha Empresa.");
     }
-    if (isToledo && env === "production" && !inscricaoMunicipal) {
+    if (isToledo && !inscricaoMunicipal) {
       throw new Error("Inscrição municipal não configurada para Toledo. Acesse Minha Empresa.");
     }
 
@@ -155,36 +243,35 @@ export async function emitirNFSe(params: EmitirParams) {
           codigo_municipio: ibgeMunicipio,
           cidade: company.cidade || undefined,
           uf: company.uf || undefined,
-          cep: String(company.cep || "").replace(/\D/g, "") || undefined,
+          cep: companyCepToSend,
           pais: "BRASIL",
         },
-        regime_tributario: Number(company.regime_tributario) || 1,
       };
 
-      try {
-        const syncPut = await fetch(`${baseUrl}/empresas/${cnpj}`, {
-          method: "PUT",
+      const syncPut = await fetch(`${baseUrl}/empresas/${cnpj}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(empresaPayload),
+      });
+      if (!syncPut.ok && syncPut.status === 404) {
+        const syncPost = await fetch(`${baseUrl}/empresas`, {
+          method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify(empresaPayload),
         });
-        if (!syncPut.ok && syncPut.status === 404) {
-          await fetch(`${baseUrl}/empresas`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify(empresaPayload),
-          });
+        if (!syncPost.ok) {
+          throw new Error(`Erro ao cadastrar empresa Toledo na Nuvem Fiscal: ${await syncPost.text()}`);
         }
-      } catch (e) {
-        console.warn("[emitirNFSe] Sync Toledo ignorado:", e);
+      } else if (!syncPut.ok) {
+        throw new Error(`Erro ao atualizar empresa Toledo na Nuvem Fiscal: ${await syncPut.text()}`);
       }
-    }
 
-    const { dhEmi, dCompet, mesReferencia: mesAuto } = getSaoPauloDate(dataCompetencia);
+    }
 
     const getCodigoNacional = (raw: string) => {
       const digits = raw.replace(/[.-]/g, "");
       if (isToledo) {
-        return digits.length >= 4 ? `${digits.substring(0, 2)}.${digits.substring(2, 4)}` : "14.01";
+        return digits.length >= 4 ? `${digits.substring(0, 2)}.${digits.substring(2, 4)}` : digits;
       }
       if (isGuaira) {
         if (digits.length >= 6) return digits.substring(0, 6);
@@ -201,12 +288,19 @@ export async function emitirNFSe(params: EmitirParams) {
         if (digits.length >= 9) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}.${digits.substring(4, 6)}.${digits.substring(6, 9)}`;
         if (digits.length === 6) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}.${digits.substring(4, 6)}.000`;
         if (digits.length === 4) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}.01.000`;
-        return "14.01.01.000";
+        return digits;
       }
       if (digits.length >= 6) return digits.substring(0, 6);
       if (digits.length === 4 && ibgeMunicipio === "4108809" && digits === "1401") return "140101";
       return digits;
     };
+
+    const cTribNac = getCodigoNacional(codServicoDigits);
+    const cTribMun = getCodigoMunicipal(codServicoDigits);
+
+    if (isToledo && (codServicoDigits.length < 4 || !cTribNac || !cTribMun)) {
+      throw new Error("Servico da LC 116 obrigatorio para Toledo. Informe o codigo de servico no formato 14.01, 14.01.01 ou 14.01.01.000.");
+    }
 
     const normalizeMunicipio = (codigo?: string | number) => {
       if (!codigo) return ibgeMunicipio;
@@ -215,22 +309,30 @@ export async function emitirNFSe(params: EmitirParams) {
     };
 
     // Tomador (cliente)
-    const cleanDoc = (client.cpf_cnpj || "").replace(/\D/g, "");
-    let blockEnd = undefined;
-    if (client.logradouro && client.cep) {
-      const cleanCep = client.cep.replace(/\D/g, "");
-      if (cleanCep.length === 8) {
-        blockEnd = {
-          xLgr: client.logradouro,
-          nro: client.numero || "SN",
-          xBairro: client.bairro || "Centro",
-          endNac: {
-            cMun: normalizeMunicipio(client.codigo_municipio_ibge),
-            CEP: cleanCep,
-          },
-        };
-      }
+    const clientPhone = onlyDigits(client.telefone);
+    const companyPhone = onlyDigits(company.telefone);
+    const phoneToSend = clientPhone || companyPhone;
+    const clientCep = onlyDigits(client.cep);
+    const cepToSend = clientCep.length === 8 ? clientCep : companyCepToSend;
+
+    if (isToledo && !phoneToSend) {
+      throw new Error("Telefone obrigatorio para emissao em Toledo. Preencha o telefone do cliente ou da empresa antes de emitir.");
     }
+    if (isToledo && !cepToSend) {
+      throw new Error("CEP obrigatorio para emissao em Toledo. Preencha o CEP do cliente ou da empresa antes de emitir.");
+    }
+
+    const blockEnd = cepToSend
+      ? {
+          xLgr: client.logradouro || company.logradouro || "Nao Informado",
+          nro: client.numero || company.numero || "SN",
+          xBairro: client.bairro || company.bairro || "Centro",
+          endNac: {
+            cMun: normalizeMunicipio(client.codigo_municipio_ibge || company.codigo_municipio_ibge),
+            CEP: cepToSend,
+          },
+        }
+      : undefined;
 
     const descClean = descricao.replace(/(\s*\(R\$\s*[\d.,]+\))+\s*$/, "").trimEnd();
     const xDescServ = `${descClean} (R$ ${totalFinal.toFixed(2)})`;
@@ -246,13 +348,13 @@ export async function emitirNFSe(params: EmitirParams) {
           CPF: cleanDoc.length > 0 && cleanDoc.length <= 11 ? cleanDoc : undefined,
           xNome: client.nome,
           email: client.email || undefined,
-          fone: client.telefone?.replace(/\D/g, "") || undefined,
+          fone: phoneToSend || undefined,
           end: blockEnd,
         },
         serv: {
           cServ: {
-            cTribNac: getCodigoNacional(codServico.replace(/[.-]/g, "")),
-            cTribMun: getCodigoMunicipal(codServico.replace(/[.-]/g, "")),
+            cTribNac,
+            cTribMun,
             CNAE: cnaeCode,
             cSitTrib: "0",
             xDescServ,
@@ -289,13 +391,20 @@ export async function emitirNFSe(params: EmitirParams) {
         cnae: cnaeCode,
         aliquota_iss: aliquota,
         data_emissao: dhEmi,
-        mes_referencia: mesReferencia || mesAuto,
+        mes_referencia: mesFinal,
+        emission_origin: emissionOrigin,
         payload_json: dpsPayload,
       })
       .select()
       .single();
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      if (isMissingBatchOriginColumn(dbError)) {
+        throw new Error("Banco desatualizado: execute migration_batch_origin.sql no Supabase antes de emitir em lote.");
+      }
+
+      throw dbError;
+    }
     invoiceId = invoice.id;
 
     // Enviar para NuvemFiscal
@@ -306,8 +415,8 @@ export async function emitirNFSe(params: EmitirParams) {
     });
 
     const responseText = await response.text();
-    let result: any = {};
-    try { result = JSON.parse(responseText); } catch { result = {}; }
+    let result: NuvemResult = {};
+    try { result = JSON.parse(responseText) as NuvemResult; } catch { result = {}; }
 
     if (!response.ok) {
       const errorDetails = result.error?.message || JSON.stringify(result);
@@ -318,7 +427,7 @@ export async function emitirNFSe(params: EmitirParams) {
         (normalized.includes("1824") && normalized.includes("nrinscricaomunicipal")) ||
         normalized.includes("8003");
 
-      if (isToledo && env === "production" && isToledoCredentialIssue) {
+      if (isToledo && isToledoCredentialIssue) {
         await supabase.from("fiscal_invoices").update({ status: "error", error_message: fullErrorString }).eq("id", invoiceId);
         return {
           success: false,
@@ -330,14 +439,14 @@ export async function emitirNFSe(params: EmitirParams) {
       if (fullErrorString.includes("229") || (fullErrorString.includes("cadastr") && fullErrorString.includes("endere"))) {
         console.log("[NFSe] Erro 00229 detectado. Reenviando sem endereço...");
         if (dpsPayload.infDPS.toma.end) {
-          delete (dpsPayload.infDPS.toma as any).end;
+          dpsPayload.infDPS.toma.end = undefined;
           const retry = await fetch(`${baseUrl}/nfse/dps`, {
             method: "POST",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
             body: JSON.stringify(dpsPayload),
           });
           if (retry.ok) {
-            const retryResult = await retry.json();
+            const retryResult = await retry.json() as NuvemResult;
             result = retryResult;
           } else {
             const retryErr = JSON.stringify(await retry.json());
@@ -368,13 +477,14 @@ export async function emitirNFSe(params: EmitirParams) {
 
     revalidatePath("/notas");
     return { success: true, invoiceId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[emitirNFSe] Erro:", error);
+    const errorMessage = getErrorMessage(error);
     if (invoiceId) {
       const supabase2 = await createClient();
-      await supabase2.from("fiscal_invoices").update({ status: "error", error_message: error.message }).eq("id", invoiceId);
+      await supabase2.from("fiscal_invoices").update({ status: "error", error_message: errorMessage }).eq("id", invoiceId);
     }
-    return { success: false, error: error.message };
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -404,26 +514,26 @@ export async function consultarNFSe(invoiceId: string) {
   });
 
   if (!response.ok) {
-    const err = await response.json();
+    const err = await response.json() as NuvemResult;
     return { success: false, error: err.error?.message || "Erro ao consultar." };
   }
 
-  const result = await response.json();
+  const result = await response.json() as NuvemResult;
 
   let novoStatus = invoice.status;
   let errorMessage = null;
 
   if (result.status === "autorizado" || result.status === "autorizada") novoStatus = "authorized";
-  else if (["erro", "rejeitado", "negado"].includes(result.status)) {
+  else if (result.status && ["erro", "rejeitado", "negado"].includes(result.status)) {
     novoStatus = "error";
     if (result.mensagens?.length) {
-      errorMessage = result.mensagens.map((m: any) => `${m.codigo}: ${m.descricao}`).join(" | ");
+      errorMessage = result.mensagens.map((m) => `${m.codigo}: ${m.descricao}`).join(" | ");
     } else {
       errorMessage = result.motivo_status || JSON.stringify(result);
     }
   } else if (result.status === "cancelado") novoStatus = "cancelled";
 
-  const updateData: Record<string, any> = {
+  const updateData: Record<string, unknown> = {
     status: novoStatus,
     numero: result.numero,
     serie: result.serie,
@@ -444,7 +554,7 @@ export async function consultarNFSe(invoiceId: string) {
   await supabase.from("fiscal_invoices").update(updateData).eq("id", invoiceId);
 
   revalidatePath("/notas");
-  return { success: true, status: novoStatus, data: result };
+  return { success: true, status: novoStatus, data: result, errorMessage };
 }
 
 export async function getInvoices(filters?: { mes?: string; status?: string; clientId?: string }) {
@@ -471,22 +581,32 @@ export async function getDashboardStats() {
   const now = new Date();
   const mesAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  const [{ count: totalClientes }, { data: notasMes }] = await Promise.all([
+  const anoAtual = now.getFullYear();
+  const [{ count: totalClientes }, { data: notasMes }, { data: despesasAno }] = await Promise.all([
     supabase.from("clients").select("*", { count: "exact", head: true }).eq("organization_id", orgId).eq("ativo", true),
     supabase
       .from("fiscal_invoices")
       .select("valor_total, status")
       .eq("organization_id", orgId)
       .eq("mes_referencia", mesAtual),
+    supabase
+      .from("expenses")
+      .select("amount")
+      .eq("organization_id", orgId)
+      .eq("active", true)
+      .gte("reference_month", `${anoAtual}-01`)
+      .lte("reference_month", `${anoAtual}-12`),
   ]);
 
   const notasAutorizadas = (notasMes || []).filter((n) => n.status === "authorized");
   const totalFaturado = notasAutorizadas.reduce((acc, n) => acc + (n.valor_total || 0), 0);
+  const totalDespesasAno = (despesasAno || []).reduce((acc, n) => acc + Number(n.amount || 0), 0);
 
   return {
     totalClientes: totalClientes || 0,
     notasNoMes: (notasMes || []).length,
     totalFaturado,
+    totalDespesasAno,
     mesAtual,
   };
 }

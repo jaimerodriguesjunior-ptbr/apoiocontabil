@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { getAuthContext, getDefaultPathForRole } from "@/lib/auth-context";
 import { redirect } from "next/navigation";
 
 export async function login(_: unknown, formData: FormData) {
@@ -14,7 +15,19 @@ export async function login(_: unknown, formData: FormData) {
     return { error: "Email ou senha inválidos." };
   }
 
-  redirect("/dashboard");
+  const context = await getAuthContext();
+
+  if (context && !context.isActive) {
+    await supabase.auth.signOut();
+    return { error: "Usuario desativado. Fale com o administrador da empresa." };
+  }
+
+  if (context?.organization?.is_blocked && context.role !== "contador") {
+    await supabase.auth.signOut();
+    return { error: context.organization.blocked_reason || "Empresa bloqueada. Fale com o escritorio contabil." };
+  }
+
+  redirect(getDefaultPathForRole(context?.role || "cliente_admin"));
 }
 
 export async function register(_: unknown, formData: FormData) {
@@ -46,7 +59,7 @@ export async function register(_: unknown, formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  redirect("/empresas");
 }
 
 export async function logout() {

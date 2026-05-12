@@ -1,23 +1,28 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { requireAccountantContext, requireCompanyOperatorContext } from "@/lib/auth-context";
 
 async function getOrgId() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Não autenticado");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id")
-    .eq("id", user.id)
-    .single();
-
-  return { supabase, orgId: profile?.organization_id as string };
+  const context = await requireAccountantContext();
+  return { supabase: context.supabase, orgId: context.orgId as string };
 }
 
 export async function getCompany() {
+  const context = await requireCompanyOperatorContext();
+  const { supabase, orgId } = { supabase: context.supabase, orgId: context.orgId as string };
+  if (!orgId) return null;
+
+  const { data } = await supabase
+    .from("company_settings")
+    .select("*")
+    .eq("organization_id", orgId)
+    .single();
+
+  return data;
+}
+
+export async function getAccountantOwnCompany() {
   const { supabase, orgId } = await getOrgId();
   if (!orgId) return null;
 

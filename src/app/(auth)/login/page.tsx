@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
 import { login } from "@/actions/auth";
 
 export default function LoginPage() {
@@ -9,7 +8,7 @@ export default function LoginPage() {
 
   return (
     <div className="card">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Entrar</h2>
+      <h2 className="mb-6 text-xl font-black text-[#25231f]">Entrar</h2>
 
       <form action={action} className="space-y-4">
         <div>
@@ -39,7 +38,7 @@ export default function LoginPage() {
         </div>
 
         {state?.error && (
-          <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
             {state.error}
           </p>
         )}
@@ -49,11 +48,8 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <p className="text-sm text-gray-500 text-center mt-4">
-        Não tem conta?{" "}
-        <Link href="/cadastro" className="text-blue-600 hover:underline font-medium">
-          Cadastre-se
-        </Link>
+      <p className="mt-4 text-center text-sm font-medium text-[#716b61]">
+        Acesso exclusivo para clientes da Amplotec.
       </p>
     </div>
   );

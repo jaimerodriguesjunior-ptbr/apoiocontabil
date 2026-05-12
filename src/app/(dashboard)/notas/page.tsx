@@ -3,13 +3,27 @@ import { FileText } from "lucide-react";
 import NotasFilter from "./NotasFilter";
 import NotaRow from "./NotaRow";
 
+type Nota = {
+  id: string;
+  status?: string | null;
+  numero?: string | null;
+  pdf_url?: string | null;
+  xml_url?: string | null;
+  error_message?: string | null;
+  data_emissao?: string | null;
+  created_at?: string | null;
+  descricao_servico?: string | null;
+  valor_total?: number | null;
+  clients?: { nome?: string | null } | null;
+};
+
 export default async function NotasPage({
   searchParams,
 }: {
   searchParams: Promise<{ mes?: string; status?: string }>;
 }) {
   const params = await searchParams;
-  const notas = await getInvoices({ mes: params.mes, status: params.status });
+  const notas = (await getInvoices({ mes: params.mes, status: params.status })) as Nota[];
 
   const mesAtual = (() => {
     const d = new Date();
@@ -33,8 +47,15 @@ export default async function NotasPage({
           <p className="text-gray-500">Nenhuma nota encontrada para os filtros selecionados.</p>
         </div>
       ) : (
-        <div className="card p-0 overflow-hidden">
-          <table className="w-full text-sm">
+        <>
+          <div className="card block p-0 overflow-hidden md:hidden">
+            {notas.map((nota) => (
+              <NotaRow key={nota.id} nota={nota} variant="mobile" />
+            ))}
+          </div>
+
+          <div className="card hidden p-0 overflow-hidden md:block">
+            <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left">
                 <th className="px-4 py-3 font-medium text-gray-600">Data</th>
@@ -47,12 +68,13 @@ export default async function NotasPage({
               </tr>
             </thead>
             <tbody>
-              {notas.map((nota: any) => (
-                <NotaRow key={nota.id} nota={nota} />
+              {notas.map((nota) => (
+                <NotaRow key={nota.id} nota={nota} variant="desktop" />
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -3,45 +3,123 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --app-bg: #f7f5ef;
+    --app-surface: #fffdf8;
+    --app-surface-strong: #ffffff;
+    --app-border: #ded8cc;
+    --app-border-soft: #ebe6dc;
+    --app-text: #25231f;
+    --app-muted: #716b61;
+    --app-primary: #0f766e;
+    --app-primary-strong: #115e59;
+    --app-primary-soft: #d9f3ee;
+    --app-accent: #b45309;
+    --app-danger: #b42318;
+    --app-shadow: 0 18px 45px rgba(37, 35, 31, 0.08);
+  }
+
   * {
     box-sizing: border-box;
   }
 
+  html, body {
+    overflow-x: hidden;
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900;
+    background:
+      linear-gradient(180deg, rgba(255, 253, 248, 0.92), rgba(247, 245, 239, 0.98)),
+      radial-gradient(circle at top left, rgba(15, 118, 110, 0.1), transparent 34rem);
+    color: var(--app-text);
+    font-family: Aptos, "Segoe UI Variable", "Segoe UI", sans-serif;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm;
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50;
+    background: var(--app-primary);
+    box-shadow: 0 10px 20px rgba(15, 118, 110, 0.14);
+    transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  }
+
+  .btn-primary:hover {
+    background: var(--app-primary-strong);
+    box-shadow: 0 14px 28px rgba(15, 118, 110, 0.18);
   }
 
   .btn-secondary {
-    @apply bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm;
+    @apply inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50;
+    border-color: var(--app-border);
+    background: var(--app-surface-strong);
+    color: var(--app-text);
+    transition: border-color 160ms ease, background-color 160ms ease;
+  }
+
+  .btn-secondary:hover {
+    border-color: #c9c1b2;
+    background: #faf8f2;
   }
 
   .btn-danger {
-    @apply bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm;
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50;
+    background: var(--app-danger);
+    transition: background-color 160ms ease;
+  }
+
+  .btn-danger:hover {
+    background: #8f1f17;
   }
 
   .input {
-    @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white;
+    @apply w-full rounded-md border px-3 py-2 text-sm outline-none;
+    min-height: 2.75rem;
+    border-color: var(--app-border);
+    background: var(--app-surface-strong);
+    color: var(--app-text);
+    transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+  }
+
+  .input:focus {
+    border-color: var(--app-primary);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
   }
 
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply mb-1 block text-xs font-bold uppercase tracking-wide;
+    color: var(--app-muted);
   }
 
   .card {
-    @apply bg-white rounded-xl border border-gray-200 p-6;
+    @apply rounded-lg border p-5;
+    background: var(--app-surface-strong);
+    border-color: var(--app-border-soft);
+    box-shadow: 0 1px 0 rgba(37, 35, 31, 0.03);
   }
 
   .page-title {
-    @apply text-2xl font-bold text-gray-900;
+    @apply text-2xl font-bold;
+    color: var(--app-text);
   }
 
   .page-subtitle {
-    @apply text-sm text-gray-500 mt-1;
+    @apply mt-1 text-sm;
+    color: var(--app-muted);
+  }
+
+  .app-shell {
+    height: 100vh;
+    overflow: hidden;
+    background: transparent;
+  }
+
+  .app-main {
+    @apply min-w-0 flex-1 px-4 pb-24 pt-14 md:px-8 md:py-8;
+    overflow-y: auto;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
   }
 }
