@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
-import { Building2 } from "lucide-react";
+import { Building2, Users } from "lucide-react";
 import { getAccountantCompany, getDisabledFixedExpenses } from "@/actions/empresas";
 import EmpresaForm from "../EmpresaForm";
 import UsuarioEmpresaForm from "../UsuarioEmpresaForm";
 import ResetSenhaUsuarioForm from "../ResetSenhaUsuarioForm";
 import EmpresaTabs from "./EmpresaTabs";
 import ConfigDespesasFixas from "./ConfigDespesasFixas";
-import { Users } from "lucide-react";
+import WhatsAppButton from "./WhatsAppButton";
 
 type UserRow = {
   id: string;
@@ -60,11 +60,19 @@ export default async function EmpresaDetalhePage({ params }: { params: Promise<{
                   <p className="text-xs font-medium text-[#716b61]">{user.email || "Email não informado"}</p>
                   <p className="text-xs font-bold text-[#716b61]">{ROLE_LABEL[user.role || ""] || user.role}</p>
                 </div>
-                <span className={`status-pill ${user.is_active ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-600"}`}>
-                  {user.is_active ? "Ativo" : "Inativo"}
-                </span>
-                <div className="basis-full sm:basis-auto sm:min-w-80">
-                  <ResetSenhaUsuarioForm organizationId={company.organization.id} userId={user.id} />
+                
+                <div className="flex flex-1 items-center justify-end gap-3 min-w-0">
+                  <span className={`status-pill ${user.is_active ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-600"}`}>
+                    {user.is_active ? "Ativo" : "Inativo"}
+                  </span>
+                  
+                  <div className="flex-1 sm:max-w-80 min-w-[200px]">
+                    <ResetSenhaUsuarioForm organizationId={company.organization.id} userId={user.id} />
+                  </div>
+
+                  {user.role === "cliente_admin" && (
+                    <WhatsAppButton fullName={user.full_name || ""} email={user.email || ""} />
+                  )}
                 </div>
               </div>
             ))}

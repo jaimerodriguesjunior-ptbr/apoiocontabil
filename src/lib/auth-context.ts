@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 
 export type UserRole = "contador" | "cliente_admin" | "cliente_usuario";
-export type ModuleAccess = "nfse" | "nfce" | "nfse_nfce";
+export type ModuleAccess = string;
 
 type ProfileContext = {
   organization_id: string | null;

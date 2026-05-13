@@ -230,11 +230,17 @@ export default function EmitirForm({
 
         <div className="card space-y-3">
           <div>
-            <label className="label">Ambiente</label>
-            <select className="input" value={environment} onChange={(event) => setEnvironment(event.target.value)}>
-              <option value="production">Producao</option>
-              <option value="homologation">Homologacao (testes)</option>
-            </select>
+            <label className="label">Ambiente ativo</label>
+            <div className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+              environment === "production" 
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                : "bg-amber-50 text-amber-700 border border-amber-200"
+            }`}>
+              {environment === "production" ? "Producao" : "Homologacao (Testes)"}
+            </div>
+            <p className="mt-2 text-[10px] font-medium text-[#716b61]">
+              Definido pelo contador nas configurações da empresa.
+            </p>
           </div>
         </div>
       </div>

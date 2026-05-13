@@ -55,7 +55,7 @@ export default function DespesaForm() {
         <p className="mt-1 text-sm font-medium text-[#716b61]">Informe apenas o essencial.</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Valor gasto</label>
           <input className="input" value={form.amount} onChange={(event) => setField("amount", event.target.value)} placeholder="0,00" required />

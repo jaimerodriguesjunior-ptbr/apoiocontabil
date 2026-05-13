@@ -13,7 +13,7 @@ type CompanyRow = {
 const MODULE_LABEL: Record<string, string> = {
   nfse: "NFSe",
   nfce: "NFCe",
-  nfse_nfce: "NFSe + NFCe",
+  nfe: "NFe",
 };
 
 export default async function EmpresasPage() {
@@ -57,7 +57,12 @@ export default async function EmpresasPage() {
                 <tr key={empresa.id} className="border-b border-[#ebe6dc] last:border-0 hover:bg-[#faf8f2]">
                   <td className="px-4 py-3 font-black text-[#25231f]">{empresa.name}</td>
                   <td className="px-4 py-3 font-medium text-[#716b61]">{empresa.document || "-"}</td>
-                  <td className="px-4 py-3 font-medium text-[#716b61]">{MODULE_LABEL[empresa.module_access || "nfse"] || empresa.module_access}</td>
+                  <td className="px-4 py-3 font-medium text-[#716b61]">
+                    {(empresa.module_access || "nfse")
+                      .split("_")
+                      .map((m) => MODULE_LABEL[m] || m)
+                      .join(" + ")}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`status-pill ${empresa.is_blocked ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
                       {empresa.is_blocked ? "Bloqueada" : "Ativa"}

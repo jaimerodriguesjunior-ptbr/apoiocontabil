@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getDashboardStats, getInvoices } from "@/actions/fiscal";
 import { getAuthContext } from "@/lib/auth-context";
-import { AlertCircle, ArrowUpRight, Boxes, FilePlus, FileText, ListOrdered, ReceiptText, TrendingUp } from "lucide-react";
+import { AlertCircle, ArrowUpRight, Boxes, FilePlus, FileText, ListOrdered, ReceiptText, Settings, TrendingUp } from "lucide-react";
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   authorized: { label: "Autorizada", className: "bg-emerald-50 text-emerald-700" },
@@ -38,10 +38,18 @@ export default async function DashboardPage() {
           <h1 className="page-title mt-1">Início</h1>
           <p className="page-subtitle capitalize">{mesLabel}</p>
         </div>
-        <Link href="/notas" className="hidden items-center gap-2 text-sm font-semibold text-[#0f766e] hover:text-[#115e59] md:inline-flex">
-          Ver notas
-          <ArrowUpRight size={16} />
-        </Link>
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <Link href="/configuracoes" className="inline-flex items-center gap-1.5 rounded-lg border border-[#ded8cc] bg-[#fffdf8] px-3 py-2 text-sm font-semibold text-[#716b61] transition-colors hover:border-[#0f766e] hover:text-[#0f766e]">
+              <Settings size={16} />
+              <span className="hidden sm:inline">Configurações</span>
+            </Link>
+          )}
+          <Link href="/notas" className="hidden items-center gap-2 text-sm font-semibold text-[#0f766e] hover:text-[#115e59] md:inline-flex">
+            Ver notas
+            <ArrowUpRight size={16} />
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

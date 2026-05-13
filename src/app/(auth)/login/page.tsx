@@ -1,10 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useActionState, Suspense } from "react";
 import { login } from "@/actions/auth";
 
-export default function LoginPage() {
+function LoginForm() {
   const [state, action, isPending] = useActionState(login, null);
+  const searchParams = useSearchParams();
+  const rawEmail = searchParams.get("email") || "";
+  // Pega apenas a primeira parte caso o link venha com lixo (ex: espaços ou texto colado)
+  const defaultEmail = rawEmail.split(" ")[0];
 
   return (
     <div className="card">
@@ -20,6 +25,7 @@ export default function LoginPage() {
             required
             autoComplete="email"
             className="input"
+            defaultValue={defaultEmail}
             placeholder="seu@email.com"
           />
         </div>
@@ -52,5 +58,13 @@ export default function LoginPage() {
         Acesso exclusivo para clientes da Amplotec.
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="card text-center">Carregando...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

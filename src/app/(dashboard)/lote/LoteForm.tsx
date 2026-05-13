@@ -289,10 +289,13 @@ export default function LoteForm({
 
         <div className="min-w-0">
           <label className="mb-1 block text-xs font-medium text-gray-700">Ambiente</label>
-          <select className="input h-10 px-2 text-sm" value={environment} onChange={(event) => setEnvironment(event.target.value)} disabled={isRunning}>
-            <option value="production">Producao</option>
-            <option value="homologation">Homologacao (testes)</option>
-          </select>
+          <div className={`inline-flex items-center gap-1.5 rounded-md px-3 h-10 text-xs font-bold ${
+            environment === "production" 
+              ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+              : "bg-amber-50 text-amber-700 border border-amber-200"
+          }`}>
+            {environment === "production" ? "Producao" : "Homologacao"}
+          </div>
         </div>
       </div>
 

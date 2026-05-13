@@ -8,7 +8,7 @@ type CompanyInput = {
   id?: string;
   name: string;
   document?: string;
-  moduleAccess?: "nfse" | "nfce" | "nfse_nfce";
+  moduleAccess?: string;
   isBlocked?: boolean;
   blockedReason?: string;
   cnpj?: string;
@@ -321,5 +321,110 @@ export async function toggleFixedExpenseForCompany(input: {
   if (error) return { error: error.message };
 
   revalidatePath(`/empresas/${input.organizationId}`);
+  return { success: true };
+}
+
+// --- Admin (cliente_admin) self-service actions ---
+
+export async function getOrgUsers() {
+  const context = await requireAuthContext();
+
+  if (context.role !== "cliente_admin") {
+    throw new Error("Apenas o administrador da empresa pode acessar esta área.");
+  }
+
+  if (!context.orgId) throw new Error("Organização não encontrada.");
+
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id, full_name, email, role, is_active, created_at")
+    .eq("organization_id", context.orgId)
+    .in("role", ["cliente_admin", "cliente_usuario"])
+    .order("full_name");
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function adminResetUserPassword(data: { userId: string; password: string }) {
+  const context = await requireAuthContext();
+
+  if (context.role !== "cliente_admin") {
+    return { error: "Apenas o administrador da empresa pode alterar senhas." };
+  }
+
+  if (!context.orgId) return { error: "Organização não encontrada." };
+  if (data.password.length < 6) return { error: "A senha deve ter pelo menos 6 caracteres." };
+
+  const admin = createAdminClient();
+
+  // Verify the target user belongs to the same org
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, organization_id, role")
+    .eq("id", data.userId)
+    .eq("organization_id", context.orgId)
+    .in("role", ["cliente_admin", "cliente_usuario"])
+    .single();
+
+  if (!profile) return { error: "Usuário não encontrado nesta empresa." };
+
+  const { error } = await admin.auth.admin.updateUserById(data.userId, {
+    password: data.password,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/configuracoes");
+  return { success: true };
+}
+
+export async function adminCreateCompanyUser(data: {
+  fullName: string;
+  email: string;
+  password: string;
+  role: "cliente_admin" | "cliente_usuario";
+}) {
+  const context = await requireAuthContext();
+
+  if (context.role !== "cliente_admin") {
+    return { error: "Apenas o administrador da empresa pode criar usuários." };
+  }
+
+  if (!context.orgId) return { error: "Organização não encontrada." };
+  if (!data.fullName.trim()) return { error: "Informe o nome do usuário." };
+  if (!data.email.trim()) return { error: "Informe o email do usuário." };
+  if (data.password.length < 6) return { error: "A senha deve ter pelo menos 6 caracteres." };
+
+  const admin = createAdminClient();
+
+  const { data: authUser, error: authError } = await admin.auth.admin.createUser({
+    email: data.email.trim(),
+    password: data.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: data.fullName.trim(),
+    },
+  });
+
+  if (authError) return { error: authError.message };
+
+  const { error: profileError } = await admin.from("profiles").upsert(
+    {
+      id: authUser.user.id,
+      organization_id: context.orgId,
+      full_name: data.fullName.trim(),
+      email: data.email.trim(),
+      role: data.role,
+      is_active: true,
+    },
+    { onConflict: "id" }
+  );
+
+  if (profileError) return { error: profileError.message };
+
+  revalidatePath("/configuracoes");
   return { success: true };
 }

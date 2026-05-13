@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { CheckCircle2, Pencil, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { fillFixedExpense, updateFixedExpense } from "@/actions/despesas-fixas";
 
 type FixedExpenseItem = {
@@ -35,29 +36,58 @@ export default function FixedExpensesModal({
   totalInvoicedYear: number;
   totalExpensesYear: number;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
-  const [visible, setVisible] = useState(true);
-  const [canClose, setCanClose] = useState(false);
   const [rows, setRows] = useState(items);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [editing, setEditing] = useState<FixedExpenseItem | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
+  
   const pendingCount = useMemo(
     () => rows.filter((item) => item.amount === null).length,
     [rows]
   );
 
-  const currentMonthExpenses = useMemo(
-    () => rows.reduce((acc, item) => acc + (item.amount || 0), 0),
-    [rows]
-  );
-
-  // Consideramos o total anual vindo do servidor + o que está sendo preenchido agora (se for do ano atual)
-  const totalExpensesYearAdjusted = totalExpensesYear;
-  const balance = totalInvoicedYear - totalExpensesYearAdjusted;
+  const balance = totalInvoicedYear - totalExpensesYear;
   const isOk = balance >= 0;
+
+  // Regra do "Refresco": Só para de aparecer se não houver pendências E estiver em equilíbrio
+  const needsAttention = pendingCount > 0 || !isOk;
+
+  const [visible, setVisible] = useState(needsAttention);
+  const [isForced, setIsForced] = useState(false);
+  const [canClose, setCanClose] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<FixedExpenseItem | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Lógica de Re-foco (Informativo após tempo inativo)
+  useEffect(() => {
+    let lastBlurTime = 0;
+
+    const handleBlur = () => {
+      lastBlurTime = Date.now();
+    };
+
+    const handleFocus = () => {
+      if (lastBlurTime === 0) return;
+      
+      const inactiveMs = Date.now() - lastBlurTime;
+      const thresholdMs = 10 * 60 * 1000; // 10 minutos
+
+      // Só abre no foco se ainda precisar de atenção (pendências ou déficit)
+      if (inactiveMs > thresholdMs && (pendingCount > 0 || !isOk)) {
+        setIsForced(true);
+        setVisible(true);
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [pendingCount, isOk]);
 
   useEffect(() => {
     if (!visible) return;
@@ -66,6 +96,13 @@ export default function FixedExpensesModal({
   }, [visible]);
 
   if (!visible) return null;
+
+  function handleClose() {
+    setVisible(false);
+    if (isForced && pathname !== "/dashboard") {
+      router.push("/dashboard");
+    }
+  }
 
   function markAsSaved(templateId: string, amount: number) {
     setRows((current) =>
@@ -144,7 +181,7 @@ export default function FixedExpensesModal({
           {canClose && (
             <button
               type="button"
-              onClick={() => setVisible(false)}
+              onClick={handleClose}
               className="rounded-md p-1.5 text-[#716b61] hover:bg-[#f4f0e8] hover:text-[#25231f]"
               aria-label="Fechar"
             >

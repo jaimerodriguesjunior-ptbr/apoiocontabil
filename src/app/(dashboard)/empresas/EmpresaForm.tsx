@@ -9,7 +9,7 @@ type InitialCompany = {
     id?: string;
     name?: string | null;
     document?: string | null;
-    module_access?: "nfse" | "nfce" | "nfse_nfce" | null;
+    module_access?: string | null;
     is_blocked?: boolean | null;
     blocked_reason?: string | null;
   } | null;
@@ -61,6 +61,29 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
   const setField = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  async function buscarCEP(cep: string) {
+    const limpo = cep.replace(/\D/g, "");
+    if (limpo.length !== 8) return;
+
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
+      const data = await res.json();
+      
+      if (!data.erro) {
+        setForm((prev) => ({
+          ...prev,
+          logradouro: data.logradouro || prev.logradouro,
+          bairro: data.bairro || prev.bairro,
+          cidade: data.localidade || prev.cidade,
+          uf: data.uf || prev.uf,
+          codigo_municipio_ibge: data.ibge || prev.codigo_municipio_ibge,
+        }));
+      }
+    } catch (err) {
+      console.error("Erro ao buscar CEP", err);
+    }
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
@@ -74,7 +97,6 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
       const result = await saveAccountantCompany({
         id: organization?.id,
         ...form,
-        moduleAccess: form.moduleAccess as "nfse" | "nfce" | "nfse_nfce",
         aliquota_iss_padrao: Number(form.aliquota_iss_padrao.replace(",", ".")) || 3,
       });
 
@@ -110,15 +132,42 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <label className="label">Módulo habilitado</label>
-            <select className="input" value={form.moduleAccess} onChange={(e) => setField("moduleAccess", e.target.value)}>
-              <option value="nfse">NFSe</option>
-              <option value="nfce">NFCe</option>
-              <option value="nfse_nfce">NFSe + NFCe</option>
-            </select>
+          <div className="md:col-span-3">
+            <label className="label">Módulos habilitados</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "nfse", label: "NFSe" },
+                { id: "nfce", label: "NFCe" },
+                { id: "nfe", label: "NFe" },
+              ].map((m) => {
+                const isActive = form.moduleAccess.split("_").includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => {
+                      const current = form.moduleAccess.split("_").filter(Boolean);
+                      let next;
+                      if (current.includes(m.id)) {
+                        next = current.filter((i) => i !== m.id);
+                      } else {
+                        next = [...current, m.id];
+                      }
+                      setField("moduleAccess", next.join("_"));
+                    }}
+                    className={`flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-bold transition-all ${
+                      isActive
+                        ? "border-[#0f766e] bg-[#0f766e] text-white shadow-sm"
+                        : "border-[#ebe6dc] bg-white text-[#716b61] hover:border-[#b8afa2]"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <label className="flex items-center gap-3 rounded-md border border-[#ded8cc] bg-[#fffdf8] px-3 py-2.5 md:col-span-2">
+          <label className="flex items-center gap-3 rounded-md border border-[#ded8cc] bg-[#fffdf8] px-3 py-2.5 md:col-span-3">
             <input
               type="checkbox"
               checked={form.isBlocked}
@@ -177,6 +226,10 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
         <h2 className="font-black text-[#25231f]">Endereço e município</h2>
         <div className="grid gap-4 md:grid-cols-4">
           <div>
+            <label className="label">CEP</label>
+            <input className="input" value={form.cep} onChange={(e) => setField("cep", e.target.value)} onBlur={(e) => buscarCEP(e.target.value)} />
+          </div>
+          <div>
             <label className="label">IBGE município</label>
             <input className="input" value={form.codigo_municipio_ibge} onChange={(e) => setField("codigo_municipio_ibge", e.target.value)} />
           </div>
@@ -187,10 +240,6 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
           <div>
             <label className="label">UF</label>
             <input className="input" value={form.uf} onChange={(e) => setField("uf", e.target.value)} maxLength={2} />
-          </div>
-          <div>
-            <label className="label">CEP</label>
-            <input className="input" value={form.cep} onChange={(e) => setField("cep", e.target.value)} />
           </div>
           <div className="md:col-span-2">
             <label className="label">Logradouro</label>
