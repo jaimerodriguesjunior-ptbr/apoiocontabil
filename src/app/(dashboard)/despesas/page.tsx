@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { BarChart3, CalendarDays, ReceiptText } from "lucide-react";
 import { getExpenses, getExpenseStats } from "@/actions/despesas";
 import { getFixedExpenseTemplates } from "@/actions/despesas-fixas";
@@ -38,8 +39,9 @@ function formatDate(value?: string | null) {
 
 export default async function DespesasPage() {
   const context = await getAuthContext();
-  if (context?.role === "cliente_usuario") {
-    const { redirect } = await import("next/navigation");
+  if (!context) redirect("/login");
+
+  if (context.role === "cliente_usuario") {
     redirect("/dashboard");
   }
 

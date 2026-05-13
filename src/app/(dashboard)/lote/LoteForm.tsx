@@ -140,9 +140,9 @@ export default function LoteForm({
 
       setIsLoadingMonth(true);
       setFormError(null);
-      const clientes = await getClientsForBatch(mes);
+      const clientesData = await getClientsForBatch(mes);
       if (!active) return;
-      setRows(buildRows(clientes as Client[]));
+      setRows(buildRows(clientesData.clients as Client[]));
       setStep("selection");
       setPage(1);
       setIsLoadingMonth(false);
