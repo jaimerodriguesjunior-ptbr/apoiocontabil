@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getClientsForBatch, saveClientBatchService } from "@/actions/clientes";
 import { emitirNFSe } from "@/actions/fiscal";
 import { AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
@@ -127,6 +127,8 @@ export default function LoteForm({
   const [isLoadingMonth, setIsLoadingMonth] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const listTopRef = useRef<HTMLDivElement | null>(null);
+  const prevPageRef = useRef(page);
 
   useEffect(() => {
     let active = true;
@@ -158,6 +160,16 @@ export default function LoteForm({
       active = false;
     };
   }, [initialClientes, initialMes, mes]);
+
+  useEffect(() => {
+    const pageChanged = prevPageRef.current !== page;
+    prevPageRef.current = page;
+    if (!pageChanged || step !== "selection") return;
+
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [page, step]);
 
   const selectedRows = rows.filter((row) => row.selected);
   const selectedCount = selectedRows.length;
@@ -308,7 +320,7 @@ export default function LoteForm({
 
       {step === "selection" ? (
         <>
-          <div className="card p-0 overflow-hidden">
+          <div ref={listTopRef} className="card p-0 overflow-hidden">
             <div className="space-y-3 border-b border-gray-100 bg-gray-50 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <label className="flex items-center gap-2 text-xs font-medium text-gray-700">

@@ -20,10 +20,19 @@ type Nota = {
 export default async function NotasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; status?: string }>;
+  searchParams: Promise<{ mes?: string; status?: string; ambiente?: "all" | "production" | "homologation" }>;
 }) {
   const params = await searchParams;
-  const notas = (await getInvoices({ mes: params.mes, status: params.status })) as Nota[];
+  const ambienteAtual = params.ambiente || "production";
+  const environment =
+    ambienteAtual === "production" || ambienteAtual === "homologation"
+      ? ambienteAtual
+      : undefined;
+  const notas = (await getInvoices({
+    mes: params.mes,
+    status: params.status,
+    environment,
+  })) as Nota[];
 
   const mesAtual = (() => {
     const d = new Date();
@@ -39,7 +48,11 @@ export default async function NotasPage({
         </div>
       </div>
 
-      <NotasFilter mesAtual={params.mes || mesAtual} statusAtual={params.status || ""} />
+      <NotasFilter
+        mesAtual={params.mes || mesAtual}
+        statusAtual={params.status || ""}
+        ambienteAtual={ambienteAtual}
+      />
 
       {notas.length === 0 ? (
         <div className="card text-center py-10">

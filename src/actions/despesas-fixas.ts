@@ -126,6 +126,7 @@ export async function getPendingFixedExpenses(referenceMonth = getCurrentMonth()
       .select("valor_total")
       .eq("organization_id", orgId)
       .eq("status", "authorized")
+      .eq("environment", "production")
       .gte("mes_referencia", `${currentYear}-01`)
       .lte("mes_referencia", `${currentYear}-12`),
     supabase

@@ -22,7 +22,7 @@ type RecentInvoice = {
 export default async function DashboardPage() {
   const [stats, notas, context] = await Promise.all([
     getDashboardStats(),
-    getInvoices({ mes: undefined }),
+    getInvoices({ mes: undefined, environment: "production" }),
     getAuthContext(),
   ]);
 

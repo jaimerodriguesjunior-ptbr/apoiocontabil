@@ -225,6 +225,10 @@ export async function emitirNFSe(params: EmitirParams) {
     if (isToledo && !inscricaoMunicipal) {
       throw new Error("Inscrição municipal não configurada para Toledo. Acesse Minha Empresa.");
     }
+    const companyEmailContato = String(company.email_contato || "").trim();
+    if (isToledo && !companyEmailContato) {
+      throw new Error("Email de contato da empresa obrigatório para emissão em Toledo. Preencha em Minha Empresa.");
+    }
 
     // Sync empresa Toledo
     if (isToledo && inscricaoMunicipal) {
@@ -232,7 +236,7 @@ export async function emitirNFSe(params: EmitirParams) {
         cpf_cnpj: cnpj,
         nome_razao_social: company.razao_social || company.nome_fantasia || cnpj,
         nome_fantasia: company.nome_fantasia || company.razao_social || cnpj,
-        email: company.email_contato || undefined,
+        email: companyEmailContato,
         inscricao_estadual: company.inscricao_estadual || undefined,
         inscricao_municipal: inscricaoMunicipal,
         endereco: {
@@ -557,18 +561,25 @@ export async function consultarNFSe(invoiceId: string) {
   return { success: true, status: novoStatus, data: result, errorMessage };
 }
 
-export async function getInvoices(filters?: { mes?: string; status?: string; clientId?: string }) {
+export async function getInvoices(filters?: {
+  mes?: string;
+  status?: string;
+  clientId?: string;
+  environment?: "production" | "homologation";
+}) {
   const { supabase, orgId } = await getOrgId();
 
   let query = supabase
     .from("fiscal_invoices")
     .select(`*, clients(nome, cpf_cnpj)`)
     .eq("organization_id", orgId)
+    .order("environment", { ascending: false })
     .order("created_at", { ascending: false });
 
   if (filters?.mes) query = query.eq("mes_referencia", filters.mes);
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.clientId) query = query.eq("client_id", filters.clientId);
+  if (filters?.environment) query = query.eq("environment", filters.environment);
 
   const { data, error } = await query.limit(200);
   if (error) throw error;
@@ -586,7 +597,7 @@ export async function getDashboardStats() {
     supabase.from("clients").select("*", { count: "exact", head: true }).eq("organization_id", orgId).eq("ativo", true),
     supabase
       .from("fiscal_invoices")
-      .select("valor_total, status")
+      .select("valor_total, status, environment")
       .eq("organization_id", orgId)
       .eq("mes_referencia", mesAtual),
     supabase
@@ -598,7 +609,9 @@ export async function getDashboardStats() {
       .lte("reference_month", `${anoAtual}-12`),
   ]);
 
-  const notasAutorizadas = (notasMes || []).filter((n) => n.status === "authorized");
+  const notasAutorizadas = (notasMes || []).filter(
+    (n) => n.status === "authorized" && n.environment === "production"
+  );
   const totalFaturado = notasAutorizadas.reduce((acc, n) => acc + (n.valor_total || 0), 0);
   const totalDespesasAno = (despesasAno || []).reduce((acc, n) => acc + Number(n.amount || 0), 0);
 

@@ -197,6 +197,25 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
             <input className="input" value={form.nome_fantasia} onChange={(e) => setField("nome_fantasia", e.target.value)} />
           </div>
           <div>
+            <label className="label">Email de contato</label>
+            <input
+              className="input"
+              type="email"
+              value={form.email_contato}
+              onChange={(e) => setField("email_contato", e.target.value)}
+              placeholder="financeiro@empresa.com.br"
+            />
+          </div>
+          <div>
+            <label className="label">Telefone</label>
+            <input
+              className="input"
+              value={form.telefone}
+              onChange={(e) => setField("telefone", e.target.value)}
+              placeholder="(45) 99999-9999"
+            />
+          </div>
+          <div>
             <label className="label">Inscrição municipal</label>
             <input className="input" value={form.inscricao_municipal} onChange={(e) => setField("inscricao_municipal", e.target.value)} />
           </div>
