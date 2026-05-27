@@ -563,6 +563,98 @@ export async function consultarNFSe(invoiceId: string) {
   return { success: true, status: novoStatus, data: result, errorMessage };
 }
 
+export async function cancelarNFSe(invoiceId: string, motivo: string, codigo?: string) {
+  const { supabase, orgId } = await getOrgId();
+  const cleanMotivo = motivo.trim();
+  const cleanCodigo = codigo?.trim();
+
+  if (cleanMotivo.length < 15) {
+    return { success: false, error: "Informe um motivo de cancelamento com pelo menos 15 caracteres." };
+  }
+
+  const { data: invoice } = await supabase
+    .from("fiscal_invoices")
+    .select("*")
+    .eq("id", invoiceId)
+    .eq("organization_id", orgId)
+    .single();
+
+  if (!invoice || !invoice.nuvemfiscal_uuid) {
+    return { success: false, error: "Nota nao encontrada ou sem ID da NuvemFiscal." };
+  }
+
+  if (invoice.status === "cancelled") {
+    return { success: false, error: "Esta nota ja esta cancelada." };
+  }
+
+  if (invoice.status !== "authorized") {
+    return { success: false, error: "Apenas notas autorizadas podem ser canceladas." };
+  }
+
+  const env = (invoice.environment as "production" | "homologation") || "production";
+  const token = await getNuvemFiscalToken(env);
+  const baseUrl =
+    env === "production"
+      ? process.env.NUVEMFISCAL_PROD_URL || "https://api.nuvemfiscal.com.br"
+      : process.env.NUVEMFISCAL_HOM_URL || "https://api.sandbox.nuvemfiscal.com.br";
+
+  const response = await fetch(`${baseUrl}/nfse/${invoice.nuvemfiscal_uuid}/cancelamento`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      motivo: cleanMotivo,
+      ...(cleanCodigo ? { codigo: cleanCodigo } : {}),
+    }),
+  });
+
+  const responseText = await response.text();
+  let result: NuvemResult = {};
+  try { result = JSON.parse(responseText) as NuvemResult; } catch { result = {}; }
+
+  if (!response.ok) {
+    const errorDetails = result.error?.message || responseText || JSON.stringify(result);
+    await supabase
+      .from("fiscal_invoices")
+      .update({
+        error_message: `Erro ao cancelar NFS-e: ${errorDetails}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", invoiceId);
+
+    return { success: false, error: `Erro ao cancelar NFS-e: ${errorDetails}` };
+  }
+
+  const cancelStatus = String(result.status || "").toLowerCase();
+  const rejected = ["erro", "rejeitado", "negado"].includes(cancelStatus);
+  const cancelMessage = result.mensagens?.length
+    ? result.mensagens.map((m) => `${m.codigo || ""}: ${m.descricao || ""}`).join(" | ")
+    : result.motivo_status || result.motivo || JSON.stringify(result);
+
+  if (rejected) {
+    await supabase
+      .from("fiscal_invoices")
+      .update({
+        error_message: `Cancelamento rejeitado: ${cancelMessage}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", invoiceId);
+
+    return { success: false, error: `Cancelamento rejeitado: ${cancelMessage}` };
+  }
+
+  await supabase
+    .from("fiscal_invoices")
+    .update({
+      status: "cancelled",
+      error_message: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", invoiceId);
+
+  revalidatePath("/notas");
+  return { success: true, status: "cancelled", data: result };
+}
+
 export async function getInvoices(filters?: {
   mes?: string;
   status?: string;

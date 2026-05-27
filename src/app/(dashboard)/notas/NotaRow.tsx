@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import { consultarNFSe } from "@/actions/fiscal";
-import { AlertCircle, ExternalLink, FileDown, RefreshCw, X } from "lucide-react";
+import { useCallback, useEffect, useState, useTransition } from "react";
+import { cancelarNFSe, consultarNFSe } from "@/actions/fiscal";
+import { AlertCircle, Ban, ExternalLink, FileDown, RefreshCw, X } from "lucide-react";
 
 const STATUS: Record<string, { label: string; className: string }> = {
   authorized: { label: "Autorizada", className: "bg-green-100 text-green-700" },
@@ -27,6 +27,7 @@ type Nota = {
 };
 
 function ActionButtons({
+  cancelar,
   consultar,
   errorMsg,
   isPending,
@@ -35,6 +36,7 @@ function ActionButtons({
   status,
   xmlUrl,
 }: {
+  cancelar: () => void;
   consultar: () => void;
   errorMsg?: string | null;
   isPending: boolean;
@@ -62,6 +64,17 @@ function ActionButtons({
           type="button"
         >
           <AlertCircle size={15} />
+        </button>
+      )}
+      {status === "authorized" && (
+        <button
+          onClick={cancelar}
+          disabled={isPending}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
+          title="Cancelar nota"
+          type="button"
+        >
+          <Ban size={15} />
         </button>
       )}
       {pdfUrl && (
@@ -94,7 +107,7 @@ export default function NotaRow({ nota, variant }: { nota: Nota; variant: "mobil
   const cliente = nota.clients?.nome || "Cliente nao encontrado";
   const descricao = nota.descricao_servico || "-";
 
-  function consultar() {
+  const consultar = useCallback(() => {
     startTransition(async () => {
       const res = await consultarNFSe(nota.id);
       if (res.success && res.data) {
@@ -108,6 +121,25 @@ export default function NotaRow({ nota, variant }: { nota: Nota; variant: "mobil
         setErrorMsg(res.error || "Erro ao consultar status da nota.");
       }
     });
+  }, [errorMsg, nota.id, numero, pdfUrl, status, xmlUrl]);
+
+  function cancelar() {
+    const confirmed = window.confirm("Tem certeza que deseja cancelar esta nota?");
+    if (!confirmed) return;
+
+    const motivo = window.prompt("Informe o motivo do cancelamento:", "Cancelamento solicitado pelo emitente.");
+    if (motivo === null) return;
+
+    startTransition(async () => {
+      const res = await cancelarNFSe(nota.id, motivo);
+      if (res.success) {
+        setStatus(res.status || "cancelled");
+        setErrorMsg(null);
+      } else {
+        setErrorMsg(res.error || "Erro ao cancelar a nota.");
+        setShowError(true);
+      }
+    });
   }
 
   useEffect(() => {
@@ -118,7 +150,7 @@ export default function NotaRow({ nota, variant }: { nota: Nota; variant: "mobil
       }, 10000);
     }
     return () => clearInterval(interval);
-  }, [status]);
+  }, [consultar, status]);
 
   return (
     <>
@@ -142,6 +174,7 @@ export default function NotaRow({ nota, variant }: { nota: Nota; variant: "mobil
           <div className="mt-3 flex items-center justify-between gap-3">
             <p className="text-base font-semibold text-gray-900">{valorFmt}</p>
             <ActionButtons
+              cancelar={cancelar}
               consultar={consultar}
               errorMsg={errorMsg}
               isPending={isPending}
@@ -187,6 +220,7 @@ export default function NotaRow({ nota, variant }: { nota: Nota; variant: "mobil
             </td>
             <td className="px-4 py-3">
               <ActionButtons
+                cancelar={cancelar}
                 consultar={consultar}
                 errorMsg={errorMsg}
                 isPending={isPending}
