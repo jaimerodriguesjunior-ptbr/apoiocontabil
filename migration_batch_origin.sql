@@ -5,3 +5,6 @@ ALTER TABLE fiscal_invoices
 
 CREATE INDEX IF NOT EXISTS fiscal_invoices_batch_month_idx
   ON fiscal_invoices (organization_id, mes_referencia, emission_origin, client_id, status);
+
+CREATE INDEX IF NOT EXISTS fiscal_invoices_batch_month_environment_idx
+  ON fiscal_invoices (organization_id, mes_referencia, emission_origin, environment, client_id, status);

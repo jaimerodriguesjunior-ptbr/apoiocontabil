@@ -31,6 +31,10 @@ type InvoiceSummary = {
   status: string | null;
 };
 
+function normalizeEnvironment(value?: string | null): "production" | "homologation" {
+  return value === "homologation" ? "homologation" : "production";
+}
+
 function isMissingBatchOriginColumn(error: unknown) {
   return (
     typeof error === "object" &&
@@ -86,10 +90,13 @@ export async function getClientsWithServices() {
   }));
 }
 
-export async function getClientsForBatch(mesReferencia: string) {
+export async function getClientsForBatch(mesReferencia: string, environment?: "production" | "homologation") {
   const { supabase, orgId } = await getOrgId();
 
-  const [{ data: clients, error: clientsError }, { data: invoices, error: invoicesError }] =
+  const [
+    { data: clients, error: clientsError },
+    { data: company },
+  ] =
     await Promise.all([
       supabase
         .from("clients")
@@ -98,12 +105,21 @@ export async function getClientsForBatch(mesReferencia: string) {
         .eq("ativo", true)
         .order("nome"),
       supabase
-        .from("fiscal_invoices")
-        .select("client_id, status")
+        .from("company_settings")
+        .select("environment")
         .eq("organization_id", orgId)
-        .eq("mes_referencia", mesReferencia)
-        .eq("emission_origin", "batch"),
+        .maybeSingle(),
     ]);
+
+  const batchEnvironment = normalizeEnvironment(environment || company?.environment);
+
+  const { data: invoices, error: invoicesError } = await supabase
+    .from("fiscal_invoices")
+    .select("client_id, status")
+    .eq("organization_id", orgId)
+    .eq("mes_referencia", mesReferencia)
+    .eq("emission_origin", "batch")
+    .eq("environment", batchEnvironment);
 
   if (clientsError) throw clientsError;
   if (invoicesError) {
@@ -150,6 +166,7 @@ export async function getClientsForBatch(mesReferencia: string) {
     totalClients: allClients.length,
     totalWithServices: clientsWithServices.length,
     alreadyEmitted: emittedClientIds.size,
+    environment: batchEnvironment,
   };
 }
 

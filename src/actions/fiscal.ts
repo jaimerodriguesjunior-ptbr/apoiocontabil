@@ -166,6 +166,8 @@ export async function emitirNFSe(params: EmitirParams) {
       throw new Error("CPF/CNPJ do cliente ausente ou invalido.");
     }
 
+    const env = environment || company.environment || "production";
+
     if (emissionOrigin === "batch") {
       const { data: existingBatchInvoice, error: existingBatchError } = await supabase
         .from("fiscal_invoices")
@@ -174,6 +176,7 @@ export async function emitirNFSe(params: EmitirParams) {
         .eq("client_id", clientId)
         .eq("mes_referencia", mesFinal)
         .eq("emission_origin", "batch")
+        .eq("environment", env)
         .not("status", "in", '("error","cancelled")')
         .limit(1)
         .maybeSingle();
@@ -187,11 +190,10 @@ export async function emitirNFSe(params: EmitirParams) {
       }
 
       if (existingBatchInvoice) {
-        throw new Error("Este cliente ja possui nota enviada em lote neste mes.");
+        throw new Error("Este cliente ja possui nota enviada em lote neste mes e ambiente.");
       }
     }
 
-    const env = environment || company.environment || "production";
     const codServico = String(company.codigo_servico_padrao || "").trim();
     const codServicoDigits = onlyDigits(codServico);
     if (!codServicoDigits) throw new Error("Codigo de servico nao informado. Configure em Minha Empresa antes de emitir.");

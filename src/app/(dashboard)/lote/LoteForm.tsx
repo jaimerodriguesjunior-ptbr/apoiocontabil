@@ -118,7 +118,7 @@ export default function LoteForm({
   initialMes: string;
 }) {
   const [mes, setMes] = useState(initialMes);
-  const [environment, setEnvironment] = useState(empresa.environment || "production");
+  const [environment] = useState(empresa.environment || "production");
   const [rows, setRows] = useState<Row[]>(() => buildRows(initialClientes));
   const [step, setStep] = useState<Step>("selection");
   const [query, setQuery] = useState("");
@@ -142,7 +142,7 @@ export default function LoteForm({
 
       setIsLoadingMonth(true);
       setFormError(null);
-      const clientesData = await getClientsForBatch(mes);
+      const clientesData = await getClientsForBatch(mes, environment as "production" | "homologation");
       if (!active) return;
       setRows(buildRows(clientesData.clients as Client[]));
       setStep("selection");
@@ -159,7 +159,7 @@ export default function LoteForm({
     return () => {
       active = false;
     };
-  }, [initialClientes, initialMes, mes]);
+  }, [environment, initialClientes, initialMes, mes]);
 
   useEffect(() => {
     const pageChanged = prevPageRef.current !== page;
