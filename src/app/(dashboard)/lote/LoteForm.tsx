@@ -26,11 +26,20 @@ type Row = {
   client: Client;
   selected: boolean;
   valor: string;
+  preferredDescricao?: string;
   status: "idle" | "loading" | "success" | "error";
   error?: string;
 };
 
 type Step = "selection" | "review";
+type SpecialBatchItem = {
+  clientId: string;
+  clientName?: string;
+  invoiceId?: string;
+  createdAt?: string;
+  valor?: number;
+  descricao?: string;
+};
 
 const PAGE_SIZE = 20;
 
@@ -95,30 +104,68 @@ function mesLabel(mes: string) {
   return date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
-function buildRows(clientes: Client[]): Row[] {
+function buildRows(
+  clientes: Client[],
+  overrides?: Map<string, { valor?: number; descricao?: string }>,
+  specialOnly = false
+): Row[] {
   return clientes.map((client) => {
-    const valor = moneyFromNumber(client.batch_service?.valor_mensal);
+    const override = overrides?.get(client.id);
+    const valor = moneyFromNumber(override?.valor ?? client.batch_service?.valor_mensal);
 
     return {
       client,
-      selected: parseMoney(valor) > 0,
+      selected: override ? true : (specialOnly ? false : parseMoney(valor) > 0),
       valor,
+      preferredDescricao: override?.descricao?.trim() || undefined,
       status: "idle",
     };
   });
+}
+
+function decodeSpecialPayload(encoded: string): SpecialBatchItem[] {
+  try {
+    const json = decodeURIComponent(escape(atob(encoded)));
+    const parsed = JSON.parse(json) as SpecialBatchItem[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function dedupeSpecialItems(items: SpecialBatchItem[]) {
+  const byClient = new Map<string, SpecialBatchItem>();
+  for (const item of items) {
+    if (!item?.clientId) continue;
+    const existing = byClient.get(item.clientId);
+    const itemTime = new Date(item.createdAt || 0).getTime();
+    const existingTime = new Date(existing?.createdAt || 0).getTime();
+    if (!existing || itemTime >= existingTime) {
+      byClient.set(item.clientId, item);
+    }
+  }
+  return byClient;
 }
 
 export default function LoteForm({
   initialClientes,
   empresa,
   initialMes,
+  initialEnvironment,
+  initialSpecialPayload,
+  initialSpecialKey,
+  isSpecialMode,
 }: {
   initialClientes: Client[];
   empresa: Empresa;
   initialMes: string;
+  initialEnvironment?: string;
+  initialSpecialPayload?: string | null;
+  initialSpecialKey?: string | null;
+  isSpecialMode?: boolean;
 }) {
   const [mes, setMes] = useState(initialMes);
-  const [environment] = useState(empresa.environment || "production");
+  const [environment] = useState(initialEnvironment || empresa.environment || "production");
   const [rows, setRows] = useState<Row[]>(() => buildRows(initialClientes));
   const [step, setStep] = useState<Step>("selection");
   const [query, setQuery] = useState("");
@@ -127,15 +174,57 @@ export default function LoteForm({
   const [isLoadingMonth, setIsLoadingMonth] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [specialWarning, setSpecialWarning] = useState<string | null>(null);
   const listTopRef = useRef<HTMLDivElement | null>(null);
   const prevPageRef = useRef(page);
+  const [specialOverrides] = useState<Map<string, { valor?: number; descricao?: string }>>(() => {
+    if (!isSpecialMode) return new Map();
+
+    let items: SpecialBatchItem[] = [];
+    if (initialSpecialPayload) {
+      items = decodeSpecialPayload(initialSpecialPayload);
+    } else if (initialSpecialKey && typeof window !== "undefined") {
+      const raw = sessionStorage.getItem(initialSpecialKey);
+      if (raw) {
+        try {
+          items = JSON.parse(raw) as SpecialBatchItem[];
+        } catch {
+          items = [];
+        }
+        sessionStorage.removeItem(initialSpecialKey);
+      }
+    }
+
+    const deduped = dedupeSpecialItems(items);
+    const overrides = new Map<string, { valor?: number; descricao?: string }>();
+    for (const [clientId, item] of deduped.entries()) {
+      overrides.set(clientId, {
+        valor: Number(item.valor || 0),
+        descricao: item.descricao || "",
+      });
+    }
+    return overrides;
+  });
+  const isStrictSpecialSelection = Boolean(isSpecialMode && specialOverrides.size > 0);
 
   useEffect(() => {
     let active = true;
 
     async function loadMonth() {
       if (mes === initialMes) {
-        setRows(buildRows(initialClientes));
+        const mapped = buildRows(initialClientes, specialOverrides, isStrictSpecialSelection);
+        setRows(mapped);
+        if (specialOverrides.size > 0) {
+          const availableIds = new Set(initialClientes.map((client) => client.id));
+          const missingCount = Array.from(specialOverrides.keys()).filter((id) => !availableIds.has(id)).length;
+          setSpecialWarning(
+            missingCount > 0
+              ? `${missingCount} cliente${missingCount !== 1 ? "s" : ""} do lote especial já não está disponível neste mês/ambiente.`
+              : null
+          );
+        } else {
+          setSpecialWarning(null);
+        }
         setStep("selection");
         return;
       }
@@ -144,7 +233,19 @@ export default function LoteForm({
       setFormError(null);
       const clientesData = await getClientsForBatch(mes, environment as "production" | "homologation");
       if (!active) return;
-      setRows(buildRows(clientesData.clients as Client[]));
+      const availableClients = clientesData.clients as Client[];
+      setRows(buildRows(availableClients, specialOverrides, isStrictSpecialSelection));
+      if (specialOverrides.size > 0) {
+        const availableIds = new Set(availableClients.map((client) => client.id));
+        const missingCount = Array.from(specialOverrides.keys()).filter((id) => !availableIds.has(id)).length;
+        setSpecialWarning(
+          missingCount > 0
+            ? `${missingCount} cliente${missingCount !== 1 ? "s" : ""} do lote especial já não está disponível neste mês/ambiente.`
+            : null
+        );
+      } else {
+        setSpecialWarning(null);
+      }
       setStep("selection");
       setPage(1);
       setIsLoadingMonth(false);
@@ -159,7 +260,7 @@ export default function LoteForm({
     return () => {
       active = false;
     };
-  }, [environment, initialClientes, initialMes, mes]);
+  }, [environment, initialClientes, initialMes, mes, specialOverrides, isStrictSpecialSelection]);
 
   useEffect(() => {
     const pageChanged = prevPageRef.current !== page;
@@ -173,6 +274,7 @@ export default function LoteForm({
 
   const selectedRows = rows.filter((row) => row.selected);
   const selectedCount = selectedRows.length;
+  const specialSelectedCount = rows.filter((row) => row.selected && row.preferredDescricao).length;
   const total = selectedRows.reduce((sum, row) => sum + parseMoney(row.valor), 0);
   const successCount = rows.filter((row) => row.status === "success").length;
   const errorCount = rows.filter((row) => row.status === "error").length;
@@ -188,8 +290,9 @@ export default function LoteForm({
   }, [onlySelected, query, rows]);
 
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
-  const visibleRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const showPagination = rows.length > 50;
+  const currentPage = Math.min(page, pageCount);
+  const visibleRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const showPagination = filteredRows.length > PAGE_SIZE;
 
   const updateRow = (clientId: string, patch: Partial<Row>) => {
     setRows((prev) => prev.map((row) => (row.client.id === clientId ? { ...row, ...patch } : row)));
@@ -252,7 +355,7 @@ export default function LoteForm({
 
       const valor = parseMoney(row.valor);
       const service = row.client.batch_service;
-      const descricao = service?.descricao?.trim() || `Servicos mensais - ${mesLabel(mes)}`;
+      const descricao = row.preferredDescricao || service?.descricao?.trim() || `Servicos mensais - ${mesLabel(mes)}`;
 
       updateRow(row.client.id, { status: "loading", error: undefined });
 
@@ -315,6 +418,17 @@ export default function LoteForm({
         <div className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-3 text-sm text-red-700">
           <AlertCircle size={18} className="mt-0.5 shrink-0" />
           <p>{formError}</p>
+        </div>
+      )}
+      {specialWarning && (
+        <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-3 text-sm text-amber-700">
+          <AlertCircle size={18} className="mt-0.5 shrink-0" />
+          <p>{specialWarning}</p>
+        </div>
+      )}
+      {isStrictSpecialSelection && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+          Lote especial ativo: {specialSelectedCount} cliente{specialSelectedCount !== 1 ? "s" : ""} pré-selecionado{specialSelectedCount !== 1 ? "s" : ""}.
         </div>
       )}
 
@@ -422,11 +536,11 @@ export default function LoteForm({
 
           {showPagination && (
             <div className="flex items-center justify-end gap-2 text-sm text-gray-600">
-              <button type="button" className="btn-secondary px-3" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={page === 1}>
+              <button type="button" className="btn-secondary px-3" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1}>
                 <ChevronLeft size={16} />
               </button>
-              <span>Pagina {page} de {pageCount}</span>
-              <button type="button" className="btn-secondary px-3" onClick={() => setPage((prev) => Math.min(pageCount, prev + 1))} disabled={page === pageCount}>
+              <span>Pagina {currentPage} de {pageCount}</span>
+              <button type="button" className="btn-secondary px-3" onClick={() => setPage((prev) => Math.min(pageCount, prev + 1))} disabled={currentPage === pageCount}>
                 <ChevronRight size={16} />
               </button>
             </div>

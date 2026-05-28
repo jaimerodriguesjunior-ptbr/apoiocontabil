@@ -18,13 +18,24 @@ function formatMes(mes: string) {
 export default async function LotePage({
   searchParams,
 }: {
-  searchParams: Promise<{ novo?: string }>;
+  searchParams: Promise<{
+    novo?: string;
+    mes?: string;
+    ambiente?: "all" | "production" | "homologation";
+    special?: string;
+    reemit?: string;
+    reemitKey?: string;
+  }>;
 }) {
   const params = await searchParams;
   const forceNew = params.novo === "1";
-  const mesAtual = getMesAtual();
+  const mesAtual = params.mes || getMesAtual();
+  const environment =
+    params.ambiente === "production" || params.ambiente === "homologation"
+      ? params.ambiente
+      : undefined;
   const [clientesResult, empresa] = await Promise.allSettled([
-    getClientsForBatch(mesAtual),
+    getClientsForBatch(mesAtual, environment),
     getCompany(),
   ]);
   const clientesError = clientesResult.status === "rejected" ? clientesResult.reason : null;
@@ -132,7 +143,15 @@ export default async function LotePage({
           )}
         </div>
       ) : (
-        <LoteForm initialClientes={clientes} empresa={company} initialMes={mesAtual} />
+        <LoteForm
+          initialClientes={clientes}
+          empresa={company}
+          initialMes={mesAtual}
+          initialEnvironment={environment || company.environment || "production"}
+          initialSpecialPayload={params.reemit || null}
+          initialSpecialKey={params.reemitKey || null}
+          isSpecialMode={params.special === "1"}
+        />
       )}
     </div>
   );

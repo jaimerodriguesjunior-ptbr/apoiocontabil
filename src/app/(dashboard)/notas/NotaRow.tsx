@@ -91,7 +91,19 @@ function ActionButtons({
   );
 }
 
-export default function NotaRow({ nota, variant }: { nota: Nota; variant: "mobile" | "desktop" }) {
+export default function NotaRow({
+  nota,
+  variant,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+}: {
+  nota: Nota;
+  variant: "mobile" | "desktop";
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+}) {
   const [status, setStatus] = useState(nota.status || "draft");
   const [numero, setNumero] = useState(nota.numero);
   const [pdfUrl, setPdfUrl] = useState(nota.pdf_url);
@@ -156,6 +168,12 @@ export default function NotaRow({ nota, variant }: { nota: Nota; variant: "mobil
     <>
       {variant === "mobile" && (
         <div className="border-b border-gray-100 p-4 last:border-0">
+          {selectable && (
+            <label className="mb-2 inline-flex items-center gap-2 text-xs font-medium text-gray-700">
+              <input type="checkbox" checked={selected} onChange={onToggleSelect} />
+              Selecionar para lote especial
+            </label>
+          )}
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-gray-900">{cliente}</p>
@@ -207,6 +225,9 @@ export default function NotaRow({ nota, variant }: { nota: Nota; variant: "mobil
       {variant === "desktop" && (
         <>
           <tr className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+            <td className="px-2 py-3">
+              {selectable ? <input type="checkbox" checked={selected} onChange={onToggleSelect} /> : null}
+            </td>
             <td className="whitespace-nowrap px-4 py-3 text-gray-500">{dataFmt}</td>
             <td className="max-w-[160px] truncate px-4 py-3 font-medium text-gray-900">{cliente}</td>
             <td className="max-w-[220px] truncate px-4 py-3 text-gray-600" title={descricao}>{descricao}</td>
@@ -234,7 +255,7 @@ export default function NotaRow({ nota, variant }: { nota: Nota; variant: "mobil
 
           {showError && (
             <tr className="bg-red-50/60">
-              <td colSpan={7} className="px-4 py-4">
+              <td colSpan={8} className="px-4 py-4">
                 <div className="rounded-lg border border-red-200 bg-white p-4 text-sm text-red-800">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 font-semibold">

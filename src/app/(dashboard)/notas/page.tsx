@@ -1,10 +1,11 @@
 import { getInvoices } from "@/actions/fiscal";
 import { FileText } from "lucide-react";
 import NotasFilter from "./NotasFilter";
-import NotaRow from "./NotaRow";
+import NotasList from "./NotasList";
 
 type Nota = {
   id: string;
+  client_id?: string | null;
   status?: string | null;
   numero?: string | null;
   pdf_url?: string | null;
@@ -55,39 +56,16 @@ export default async function NotasPage({
       />
 
       {notas.length === 0 ? (
-        <div className="card text-center py-10">
-          <FileText size={32} className="text-gray-300 mx-auto mb-3" />
+        <div className="card py-10 text-center">
+          <FileText size={32} className="mx-auto mb-3 text-gray-300" />
           <p className="text-gray-500">Nenhuma nota encontrada para os filtros selecionados.</p>
         </div>
       ) : (
-        <>
-          <div className="card block p-0 overflow-hidden md:hidden">
-            {notas.map((nota) => (
-              <NotaRow key={nota.id} nota={nota} variant="mobile" />
-            ))}
-          </div>
-
-          <div className="card hidden p-0 overflow-hidden md:block">
-            <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                <th className="px-4 py-3 font-medium text-gray-600">Data</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Cliente</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Descrição</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Valor</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Nº NF</th>
-                <th className="px-4 py-3 font-medium text-gray-600">Status</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {notas.map((nota) => (
-                <NotaRow key={nota.id} nota={nota} variant="desktop" />
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </>
+        <NotasList
+          notas={notas}
+          mesAtual={params.mes || mesAtual}
+          ambienteAtual={ambienteAtual}
+        />
       )}
     </div>
   );
