@@ -18,20 +18,31 @@ type Nota = {
   clients?: { nome?: string | null } | null;
 };
 
+function firstParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function NotasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; status?: string; ambiente?: "all" | "production" | "homologation" }>;
+  searchParams: Promise<{
+    mes?: string | string[];
+    status?: string | string[];
+    ambiente?: "all" | "production" | "homologation" | string[];
+  }>;
 }) {
   const params = await searchParams;
-  const ambienteAtual = params.ambiente || "production";
+  const mes = firstParam(params.mes);
+  const status = firstParam(params.status);
+  const ambienteParam = firstParam(params.ambiente);
+  const ambienteAtual = ambienteParam || "production";
   const environment =
     ambienteAtual === "production" || ambienteAtual === "homologation"
       ? ambienteAtual
       : undefined;
   const notas = (await getInvoices({
-    mes: params.mes,
-    status: params.status,
+    mes,
+    status,
     environment,
   })) as Nota[];
 
@@ -50,8 +61,8 @@ export default async function NotasPage({
       </div>
 
       <NotasFilter
-        mesAtual={params.mes || mesAtual}
-        statusAtual={params.status || ""}
+        mesAtual={mes || mesAtual}
+        statusAtual={status || ""}
         ambienteAtual={ambienteAtual}
       />
 
@@ -63,7 +74,7 @@ export default async function NotasPage({
       ) : (
         <NotasList
           notas={notas}
-          mesAtual={params.mes || mesAtual}
+          mesAtual={mes || mesAtual}
           ambienteAtual={ambienteAtual}
         />
       )}

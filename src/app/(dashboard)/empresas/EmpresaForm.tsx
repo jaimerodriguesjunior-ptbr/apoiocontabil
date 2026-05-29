@@ -60,6 +60,11 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
 
   const setField = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+  const [supportChecklist, setSupportChecklist] = useState<Record<string, boolean>>({});
+
+  const toggleChecklist = (id: string) => {
+    setSupportChecklist((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   async function buscarCEP(cep: string) {
     const limpo = cep.replace(/\D/g, "");
@@ -301,6 +306,91 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
           <div>
             <label className="label">Senha NFS-e</label>
             <input className="input" type="password" value={form.nfse_password} onChange={(e) => setField("nfse_password", e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      <div className="card space-y-4">
+        <div>
+          <h2 className="font-black text-[#25231f]">Suporte TI</h2>
+          <p className="mt-1 text-sm font-medium text-[#716b61]">
+            Checklist para liberar a empresa para emissao sem erros.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-lg border border-[#ebe6dc] bg-[#fffdf8] p-4">
+            <p className="text-sm font-black text-[#25231f]">NFSe</p>
+            <div className="mt-3 space-y-2">
+              {[
+                "Cadastro empresa na Prefeitura em homologacao",
+                "Solicitacao de RPS homologacao",
+                "Cadastro empresa na Nuvem Fiscal homologacao",
+                "Cadastro de lote de RPS Nuvem Fiscal homologacao",
+                "Cadastro empresa na Nuvem Fiscal producao",
+                "Verificar numero da ultima nota emitida com contador",
+                "Cadastro de lote de RPS Nuvem Fiscal producao",
+              ].map((item) => {
+                const id = `nfse-${item}`;
+                return (
+                  <label key={id} className="flex items-start gap-2 text-sm text-[#25231f]">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(supportChecklist[id])}
+                      onChange={() => toggleChecklist(id)}
+                      className="mt-0.5"
+                    />
+                    <span>{item}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#ebe6dc] bg-[#fffdf8] p-4">
+            <p className="text-sm font-black text-[#25231f]">NFCe</p>
+            <div className="mt-3 space-y-2">
+              {[
+                "Solicitar UPD Sefaz",
+                "Autorizar UPD Sefaz",
+              ].map((item) => {
+                const id = `nfce-${item}`;
+                return (
+                  <label key={id} className="flex items-start gap-2 text-sm text-[#25231f]">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(supportChecklist[id])}
+                      onChange={() => toggleChecklist(id)}
+                      className="mt-0.5"
+                    />
+                    <span>{item}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#ebe6dc] bg-[#fffdf8] p-4">
+            <p className="text-sm font-black text-[#25231f]">NFe</p>
+            <div className="mt-3 space-y-2">
+              {[
+                "Solicitar UPD Sefaz",
+                "Autorizar UPD Sefaz",
+              ].map((item) => {
+                const id = `nfe-${item}`;
+                return (
+                  <label key={id} className="flex items-start gap-2 text-sm text-[#25231f]">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(supportChecklist[id])}
+                      onChange={() => toggleChecklist(id)}
+                      className="mt-0.5"
+                    />
+                    <span>{item}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

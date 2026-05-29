@@ -528,16 +528,17 @@ export async function consultarNFSe(invoiceId: string) {
 
   let novoStatus = invoice.status;
   let errorMessage = null;
+  const providerStatus = String(result.status || "").toLowerCase();
 
-  if (result.status === "autorizado" || result.status === "autorizada") novoStatus = "authorized";
-  else if (result.status && ["erro", "rejeitado", "negado"].includes(result.status)) {
+  if (providerStatus === "autorizado" || providerStatus === "autorizada") novoStatus = "authorized";
+  else if (providerStatus && ["erro", "rejeitado", "rejeitada", "negado", "negada"].includes(providerStatus)) {
     novoStatus = "error";
     if (result.mensagens?.length) {
       errorMessage = result.mensagens.map((m) => `${m.codigo}: ${m.descricao}`).join(" | ");
     } else {
       errorMessage = result.motivo_status || JSON.stringify(result);
     }
-  } else if (result.status === "cancelado") novoStatus = "cancelled";
+  } else if (providerStatus === "cancelado" || providerStatus === "cancelada") novoStatus = "cancelled";
 
   const updateData: Record<string, unknown> = {
     status: novoStatus,

@@ -15,25 +15,33 @@ function formatMes(mes: string) {
   return date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
+function firstParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function LotePage({
   searchParams,
 }: {
   searchParams: Promise<{
-    novo?: string;
-    mes?: string;
-    ambiente?: "all" | "production" | "homologation";
-    special?: string;
-    reemit?: string;
-    reemitKey?: string;
+    novo?: string | string[];
+    mes?: string | string[];
+    ambiente?: "all" | "production" | "homologation" | string[];
+    special?: string | string[];
+    reemit?: string | string[];
+    reemitKey?: string | string[];
   }>;
 }) {
   const params = await searchParams;
-  const forceNew = params.novo === "1";
-  const mesAtual = params.mes || getMesAtual();
+  const forceNew = firstParam(params.novo) === "1";
+  const mesAtual = firstParam(params.mes) || getMesAtual();
+  const ambienteParam = firstParam(params.ambiente);
   const environment =
-    params.ambiente === "production" || params.ambiente === "homologation"
-      ? params.ambiente
+    ambienteParam === "production" || ambienteParam === "homologation"
+      ? ambienteParam
       : undefined;
+  const special = firstParam(params.special) === "1";
+  const reemit = firstParam(params.reemit) || null;
+  const reemitKey = firstParam(params.reemitKey) || null;
   const [clientesResult, empresa] = await Promise.allSettled([
     getClientsForBatch(mesAtual, environment),
     getCompany(),
@@ -148,9 +156,9 @@ export default async function LotePage({
           empresa={company}
           initialMes={mesAtual}
           initialEnvironment={environment || company.environment || "production"}
-          initialSpecialPayload={params.reemit || null}
-          initialSpecialKey={params.reemitKey || null}
-          isSpecialMode={params.special === "1"}
+          initialSpecialPayload={reemit}
+          initialSpecialKey={reemitKey}
+          isSpecialMode={special}
         />
       )}
     </div>
