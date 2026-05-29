@@ -43,7 +43,7 @@ type SpecialBatchItem = {
 
 const PAGE_SIZE = 20;
 const BATCH_SIZE = 1;
-const RETRY_DELAY_MS = 3000;
+const RETRY_DELAY_MS = 5000;
 
 function moneyFromNumber(value?: number | null) {
   return value ? String(value).replace(".", ",") : "";
