@@ -42,8 +42,8 @@ type SpecialBatchItem = {
 };
 
 const PAGE_SIZE = 20;
-const BATCH_SIZE = 3;
-const RETRY_DELAY_MS = 1200;
+const BATCH_SIZE = 1;
+const RETRY_DELAY_MS = 3000;
 
 function moneyFromNumber(value?: number | null) {
   return value ? String(value).replace(".", ",") : "";
@@ -403,6 +403,10 @@ export default function LoteForm({
     for (let start = 0; start < selectedRows.length; start += BATCH_SIZE) {
       const chunk = selectedRows.slice(start, start + BATCH_SIZE).filter((row) => row.status !== "success");
       if (chunk.length === 0) continue;
+
+      if (start > 0) {
+        await sleep(RETRY_DELAY_MS);
+      }
 
       const firstPassResults = await Promise.all(
         chunk.map(async (row) => ({ row, result: await processEmission(row) }))
