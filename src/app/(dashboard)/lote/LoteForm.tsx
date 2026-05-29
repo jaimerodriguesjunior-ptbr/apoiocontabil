@@ -42,6 +42,8 @@ type SpecialBatchItem = {
 };
 
 const PAGE_SIZE = 20;
+const BATCH_SIZE = 3;
+const RETRY_DELAY_MS = 1200;
 
 function moneyFromNumber(value?: number | null) {
   return value ? String(value).replace(".", ",") : "";
@@ -55,6 +57,20 @@ function parseMoney(value: string) {
 
 function onlyDigits(value?: string | null) {
   return String(value || "").replace(/\D/g, "");
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isDuplicateRpsError(error?: string) {
+  const normalized = String(error || "").toLowerCase();
+  return (
+    normalized.includes("rps informado já foi convertido") ||
+    normalized.includes("rps informado ja foi convertido") ||
+    normalized.includes("rps:") ||
+    normalized.includes("8011")
+  );
 }
 
 function hasValidCpfOrCnpj(value?: string | null) {
@@ -350,9 +366,7 @@ export default function LoteForm({
 
     setIsRunning(true);
 
-    for (const row of selectedRows) {
-      if (row.status === "success") continue;
-
+    const processEmission = async (row: Row) => {
       const valor = parseMoney(row.valor);
       const service = row.client.batch_service;
       const descricao = row.preferredDescricao || service?.descricao?.trim() || `Servicos mensais - ${mesLabel(mes)}`;
@@ -367,7 +381,7 @@ export default function LoteForm({
 
       if (saved?.error) {
         updateRow(row.client.id, { status: "error", error: saved.error });
-        continue;
+        return { success: false, error: saved.error };
       }
 
       const res = await emitirNFSe({
@@ -383,6 +397,25 @@ export default function LoteForm({
         status: res.success ? "success" : "error",
         error: res.success ? undefined : res.error,
       });
+      return { success: res.success, error: res.error };
+    };
+
+    for (let start = 0; start < selectedRows.length; start += BATCH_SIZE) {
+      const chunk = selectedRows.slice(start, start + BATCH_SIZE).filter((row) => row.status !== "success");
+      if (chunk.length === 0) continue;
+
+      const firstPassResults = await Promise.all(
+        chunk.map(async (row) => ({ row, result: await processEmission(row) }))
+      );
+
+      const retryRows = firstPassResults
+        .filter(({ result }) => !result.success && isDuplicateRpsError(result.error))
+        .map(({ row }) => row);
+
+      for (const retryRow of retryRows) {
+        await sleep(RETRY_DELAY_MS);
+        await processEmission(retryRow);
+      }
     }
 
     setIsRunning(false);
