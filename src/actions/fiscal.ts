@@ -712,7 +712,7 @@ export async function getDashboardStats() {
 
   return {
     totalClientes: totalClientes || 0,
-    notasNoMes: (notasMes || []).length,
+    notasNoMes: notasAutorizadas.length,
     totalFaturado,
     totalDespesasAno,
     mesAtual,

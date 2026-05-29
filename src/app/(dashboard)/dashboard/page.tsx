@@ -115,7 +115,7 @@ export default async function DashboardPage() {
           </div>
           <div>
             <p className="text-2xl font-black text-[#25231f]">{stats.notasNoMes}</p>
-            <p className="text-sm font-medium text-[#716b61]">Notas no mês</p>
+            <p className="text-sm font-medium text-[#716b61]">Notas válidas (autorizadas)</p>
           </div>
         </div>
 
