@@ -1,16 +1,20 @@
 
 export async function getNuvemFiscalToken(environment: 'production' | 'homologation' = 'production') {
-    let clientId, clientSecret;
+    let clientId, clientSecret, authUrl;
 
     if (environment === 'production') {
         clientId = process.env.NUVEMFISCAL_PROD_CLIENT_ID;
         clientSecret = process.env.NUVEMFISCAL_PROD_CLIENT_SECRET;
+        authUrl =
+            process.env.NUVEMFISCAL_PROD_AUTH_URL ||
+            "https://auth.nuvemfiscal.com.br/oauth/token";
     } else {
         clientId = process.env.NUVEMFISCAL_HOM_CLIENT_ID;
         clientSecret = process.env.NUVEMFISCAL_HOM_CLIENT_SECRET;
+        authUrl =
+            process.env.NUVEMFISCAL_HOM_AUTH_URL ||
+            "https://auth.nuvemfiscal.com.br/oauth/token";
     }
-
-    const authUrl = "https://auth.nuvemfiscal.com.br/oauth/token";
 
     if (!clientId || !clientSecret) {
         throw new Error(`Credenciais da Nuvem Fiscal (${environment}) não encontradas no .env.local`);
