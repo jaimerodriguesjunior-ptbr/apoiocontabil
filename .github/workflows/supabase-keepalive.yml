@@ -1,0 +1,38 @@
+name: Supabase Keep-Alive Ping
+
+# Roda a cada 3 dias às 08:00 UTC (05:00 Brasília)
+# Isso é mais que suficiente para evitar a pausa de 7 dias do free tier
+on:
+  schedule:
+    - cron: '0 8 */3 * *'
+  workflow_dispatch: # Permite rodar manualmente pelo GitHub
+
+jobs:
+  ping:
+    name: Ping Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Fazer ping no endpoint de health
+        run: |
+          echo "⏰ Iniciando ping em: $(date -u)"
+          
+          # Remove barra final da URL caso exista
+          BASE_URL="${{ secrets.APP_URL }}"
+          BASE_URL="${BASE_URL%/}"
+          
+          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            --max-time 30 \
+            "${BASE_URL}/api/health")
+          
+          echo "📡 Status HTTP: $HTTP_STATUS"
+          echo "📦 Resposta:"
+          cat /tmp/response.json
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "❌ Ping falhou com status $HTTP_STATUS"
+            exit 1
+          fi
+          
+          echo "✅ Supabase está acordado!"
