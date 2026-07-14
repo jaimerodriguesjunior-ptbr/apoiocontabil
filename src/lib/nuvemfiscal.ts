@@ -5,14 +5,18 @@ export async function getNuvemFiscalToken(environment: 'production' | 'homologat
     if (environment === 'production') {
         clientId = process.env.NUVEMFISCAL_PROD_CLIENT_ID;
         clientSecret = process.env.NUVEMFISCAL_PROD_CLIENT_SECRET;
+        const apiUrl = (process.env.NUVEMFISCAL_PROD_URL || "").replace(/\/+$/, "");
         authUrl =
             process.env.NUVEMFISCAL_PROD_AUTH_URL ||
+            (apiUrl && !apiUrl.includes("nuvemfiscal.com.br") ? `${apiUrl}/oauth/token` : "") ||
             "https://auth.nuvemfiscal.com.br/oauth/token";
     } else {
         clientId = process.env.NUVEMFISCAL_HOM_CLIENT_ID;
         clientSecret = process.env.NUVEMFISCAL_HOM_CLIENT_SECRET;
+        const apiUrl = (process.env.NUVEMFISCAL_HOM_URL || "").replace(/\/+$/, "");
         authUrl =
             process.env.NUVEMFISCAL_HOM_AUTH_URL ||
+            (apiUrl && !apiUrl.includes("nuvemfiscal.com.br") ? `${apiUrl}/oauth/token` : "") ||
             "https://auth.nuvemfiscal.com.br/oauth/token";
     }
 

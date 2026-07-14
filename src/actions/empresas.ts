@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireAuthContext } from "@/lib/auth-context";
+import { syncCompanyWithLocalFiscal } from "@/lib/nuvem-local-fiscal";
 
 type CompanyInput = {
   id?: string;
@@ -29,10 +30,24 @@ type CompanyInput = {
   telefone?: string;
   nfse_login?: string;
   nfse_password?: string;
+  nfse_provider?: string;
+  nfse_id_entidade?: string;
+  nfse_rps_emissor?: string;
+  nfse_tom_code?: string;
+  nfse_cadastro_economico?: string;
   cnae_padrao?: string;
   codigo_servico_padrao?: string;
   aliquota_iss_padrao?: number | null;
   environment?: string;
+  nfce_serie?: string;
+  nfce_certificate_hom_content?: string;
+  nfce_certificate_hom_password?: string;
+  nfce_csc_hom_token_id?: string;
+  nfce_csc_hom_code?: string;
+  nfce_certificate_prod_content?: string;
+  nfce_certificate_prod_password?: string;
+  nfce_csc_prod_token_id?: string;
+  nfce_csc_prod_code?: string;
 };
 
 type CompanyUserInput = {
@@ -92,7 +107,11 @@ export async function getAccountantCompany(id: string) {
   if (orgError) throw orgError;
 
   const [{ data: companySettings }, { data: users }] = await Promise.all([
-    admin.from("company_settings").select("*").eq("organization_id", id).maybeSingle(),
+    admin
+      .from("company_settings")
+      .select("organization_id, cnpj, razao_social, nome_fantasia, inscricao_municipal, inscricao_estadual, regime_tributario, codigo_municipio_ibge, cidade, uf, cep, logradouro, numero, complemento, bairro, email_contato, telefone, nfse_login, nfse_provider, nfse_id_entidade, nfse_rps_emissor, nfse_tom_code, nfse_cadastro_economico, cnae_padrao, codigo_servico_padrao, aliquota_iss_padrao, environment, nfce_serie, nfce_sync_status, nfce_sync_message, nfce_last_sync_at")
+      .eq("organization_id", id)
+      .maybeSingle(),
     admin
       .from("profiles")
       .select("id, full_name, email, role, is_active, created_at")
@@ -148,6 +167,17 @@ export async function saveAccountantCompany(data: CompanyInput) {
     organizationId = created.id;
   }
 
+  if (!organizationId) return { error: "Não foi possível identificar a empresa salva." };
+
+  const { data: existingSecrets } = await admin
+    .from("company_settings")
+    .select("nfse_password, nfce_certificate_hom_content, nfce_certificate_hom_password, nfce_csc_hom_token_id, nfce_csc_hom_code, nfce_certificate_prod_content, nfce_certificate_prod_password, nfce_csc_prod_token_id, nfce_csc_prod_code")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  const preserveSecret = (value?: string, current?: string | null) =>
+    cleanText(value) ?? current ?? null;
+
   const settingsPayload = {
     organization_id: organizationId,
     cnpj: cleanText(data.cnpj || data.document),
@@ -167,11 +197,25 @@ export async function saveAccountantCompany(data: CompanyInput) {
     email_contato: cleanText(data.email_contato),
     telefone: cleanText(data.telefone),
     nfse_login: cleanText(data.nfse_login),
-    nfse_password: cleanText(data.nfse_password),
+    nfse_password: preserveSecret(data.nfse_password, existingSecrets?.nfse_password),
+    nfse_provider: cleanText(data.nfse_provider),
+    nfse_id_entidade: cleanText(data.nfse_id_entidade),
+    nfse_rps_emissor: cleanText(data.nfse_rps_emissor),
+    nfse_tom_code: cleanText(data.nfse_tom_code),
+    nfse_cadastro_economico: cleanText(data.nfse_cadastro_economico),
     cnae_padrao: cleanText(data.cnae_padrao),
     codigo_servico_padrao: cleanText(data.codigo_servico_padrao),
     aliquota_iss_padrao: data.aliquota_iss_padrao ?? 3,
     environment: data.environment || "production",
+    nfce_serie: cleanText(data.nfce_serie),
+    nfce_certificate_hom_content: preserveSecret(data.nfce_certificate_hom_content, existingSecrets?.nfce_certificate_hom_content),
+    nfce_certificate_hom_password: preserveSecret(data.nfce_certificate_hom_password, existingSecrets?.nfce_certificate_hom_password),
+    nfce_csc_hom_token_id: preserveSecret(data.nfce_csc_hom_token_id, existingSecrets?.nfce_csc_hom_token_id),
+    nfce_csc_hom_code: preserveSecret(data.nfce_csc_hom_code, existingSecrets?.nfce_csc_hom_code),
+    nfce_certificate_prod_content: preserveSecret(data.nfce_certificate_prod_content, existingSecrets?.nfce_certificate_prod_content),
+    nfce_certificate_prod_password: preserveSecret(data.nfce_certificate_prod_password, existingSecrets?.nfce_certificate_prod_password),
+    nfce_csc_prod_token_id: preserveSecret(data.nfce_csc_prod_token_id, existingSecrets?.nfce_csc_prod_token_id),
+    nfce_csc_prod_code: preserveSecret(data.nfce_csc_prod_code, existingSecrets?.nfce_csc_prod_code),
     updated_at: new Date().toISOString(),
   };
 
@@ -181,10 +225,62 @@ export async function saveAccountantCompany(data: CompanyInput) {
 
   if (settingsError) return { error: settingsError.message };
 
+  const sync = await syncCompanyWithLocalFiscal({
+    organizationId,
+    cnpj: settingsPayload.cnpj,
+    razaoSocial: settingsPayload.razao_social,
+    nomeFantasia: settingsPayload.nome_fantasia,
+    inscricaoMunicipal: settingsPayload.inscricao_municipal,
+    inscricaoEstadual: settingsPayload.inscricao_estadual,
+    regimeTributario: settingsPayload.regime_tributario,
+    codigoMunicipioIbge: settingsPayload.codigo_municipio_ibge,
+    cidade: settingsPayload.cidade,
+    uf: settingsPayload.uf,
+    cep: settingsPayload.cep,
+    logradouro: settingsPayload.logradouro,
+    numero: settingsPayload.numero,
+    complemento: settingsPayload.complemento,
+    bairro: settingsPayload.bairro,
+    email: settingsPayload.email_contato,
+    nfseLogin: settingsPayload.nfse_login,
+    nfsePassword: settingsPayload.nfse_password,
+    nfseProvider: settingsPayload.nfse_provider,
+    nfseIdEntidade: settingsPayload.nfse_id_entidade,
+    nfseRpsEmissor: settingsPayload.nfse_rps_emissor,
+    nfseTomCode: settingsPayload.nfse_tom_code,
+    nfseEconomicRegistration: settingsPayload.nfse_cadastro_economico,
+    cnaePadrao: settingsPayload.cnae_padrao,
+    codigoServicoPadrao: settingsPayload.codigo_servico_padrao,
+    aliquotaIssPadrao: settingsPayload.aliquota_iss_padrao,
+    nfceSerie: settingsPayload.nfce_serie,
+    nfceCscHomTokenId: settingsPayload.nfce_csc_hom_token_id,
+    nfceCscHomCode: settingsPayload.nfce_csc_hom_code,
+    nfceCscProdTokenId: settingsPayload.nfce_csc_prod_token_id,
+    nfceCscProdCode: settingsPayload.nfce_csc_prod_code,
+    nfceCertificateHomContent: settingsPayload.nfce_certificate_hom_content,
+    nfceCertificateHomPassword: settingsPayload.nfce_certificate_hom_password,
+    nfceCertificateProdContent: settingsPayload.nfce_certificate_prod_content,
+    nfceCertificateProdPassword: settingsPayload.nfce_certificate_prod_password,
+  });
+
+  await admin
+    .from("company_settings")
+    .update({
+      nfce_sync_status: sync.status,
+      nfce_sync_message: sync.status === "success" ? null : sync.message,
+      nfce_last_sync_at: new Date().toISOString(),
+    })
+    .eq("organization_id", organizationId);
+
   revalidatePath("/empresas");
   if (organizationId) revalidatePath(`/empresas/${organizationId}`);
 
-  return { success: true, id: organizationId };
+  return {
+    success: true,
+    id: organizationId,
+    syncError: sync.status === "error" ? sync.message : undefined,
+    syncWarning: sync.status === "partial" ? sync.message : undefined,
+  };
 }
 
 export async function createCompanyUser(data: CompanyUserInput) {

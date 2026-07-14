@@ -51,16 +51,34 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
     email_contato: valueFrom(settings, "email_contato"),
     telefone: valueFrom(settings, "telefone"),
     nfse_login: valueFrom(settings, "nfse_login"),
-    nfse_password: valueFrom(settings, "nfse_password"),
+    nfse_password: "",
+    nfse_provider: valueFrom(settings, "nfse_provider") || "auto",
+    nfse_id_entidade: valueFrom(settings, "nfse_id_entidade"),
+    nfse_rps_emissor: valueFrom(settings, "nfse_rps_emissor") || "1",
+    nfse_tom_code: valueFrom(settings, "nfse_tom_code") || "7571",
+    nfse_cadastro_economico: valueFrom(settings, "nfse_cadastro_economico"),
     cnae_padrao: valueFrom(settings, "cnae_padrao"),
     codigo_servico_padrao: valueFrom(settings, "codigo_servico_padrao"),
     aliquota_iss_padrao: valueFrom(settings, "aliquota_iss_padrao") || "3",
     environment: valueFrom(settings, "environment") || "production",
+    nfce_serie: valueFrom(settings, "nfce_serie") || "1",
   });
 
   const setField = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+  const resolvedNfseProvider =
+    form.nfse_provider !== "auto"
+      ? form.nfse_provider
+      : form.codigo_municipio_ibge.replace(/\D/g, "") === "4108809"
+        ? "guaira-ipm"
+        : form.codigo_municipio_ibge.replace(/\D/g, "") === "4127700"
+          ? "toledo-equiplano"
+          : "";
   const [supportChecklist, setSupportChecklist] = useState<Record<string, boolean>>({});
+  const [certificateFileNames, setCertificateFileNames] = useState<Record<"hom" | "prod", string>>({
+    hom: "",
+    prod: "",
+  });
 
   const toggleChecklist = (id: string) => {
     setSupportChecklist((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -89,6 +107,31 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
     }
   }
 
+  function handleCertificateFile(environment: "hom" | "prod", file?: File) {
+    if (!file) return;
+
+    if (!/\.(pfx|p12)$/i.test(file.name)) {
+      setError("Selecione um certificado A1 nos formatos .pfx ou .p12.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => setError("Não foi possível ler o arquivo do certificado.");
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      const base64 = dataUrl.includes(",") ? dataUrl.split(",", 2)[1] : "";
+      if (!base64) {
+        setError("Não foi possível converter o certificado para envio.");
+        return;
+      }
+
+      setField(`nfce_certificate_${environment}_content`, base64);
+      setCertificateFileNames((current) => ({ ...current, [environment]: file.name }));
+      setError(null);
+    };
+    reader.readAsDataURL(file);
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
@@ -107,6 +150,16 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
 
       if (result?.error) {
         setError(result.error);
+        return;
+      }
+
+      if (result?.syncError) {
+        setError(`Empresa salva, mas a sincronização fiscal falhou: ${result.syncError}`);
+        return;
+      }
+
+      if (result?.syncWarning) {
+        setError(`Empresa salva. ${result.syncWarning}`);
         return;
       }
 
@@ -305,9 +358,91 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
           </div>
           <div>
             <label className="label">Senha NFS-e</label>
-            <input className="input" type="password" value={form.nfse_password} onChange={(e) => setField("nfse_password", e.target.value)} />
+                <input className="input" type="password" value={form.nfse_password} onChange={(e) => setField("nfse_password", e.target.value)} placeholder="Deixe em branco para manter a senha atual" autoComplete="new-password" />
           </div>
+          <div>
+            <label className="label">Provedor NFS-e</label>
+            <select className="input" value={form.nfse_provider} onChange={(e) => setField("nfse_provider", e.target.value)}>
+              <option value="auto">Automático pelo município</option>
+              <option value="guaira-ipm">Guaíra / IPM Atende.Net</option>
+              <option value="toledo-equiplano">Toledo / Equiplano</option>
+            </select>
+          </div>
+          {resolvedNfseProvider === "toledo-equiplano" && (
+            <>
+              <div>
+                <label className="label">ID da entidade (Toledo)</label>
+                <input className="input" value={form.nfse_id_entidade} onChange={(e) => setField("nfse_id_entidade", e.target.value)} required={Boolean(form.nfse_login || form.nfse_password)} />
+              </div>
+              <div>
+                <label className="label">Emissor RPS (Toledo)</label>
+                <input className="input" value={form.nfse_rps_emissor} onChange={(e) => setField("nfse_rps_emissor", e.target.value)} />
+              </div>
+            </>
+          )}
+          {resolvedNfseProvider === "guaira-ipm" && (
+            <>
+              <div>
+                <label className="label">Código TOM (Guaíra)</label>
+                <input className="input" value={form.nfse_tom_code} onChange={(e) => setField("nfse_tom_code", e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Cadastro econômico (Guaíra)</label>
+                <input className="input" value={form.nfse_cadastro_economico} onChange={(e) => setField("nfse_cadastro_economico", e.target.value)} placeholder="Usa a inscrição municipal se vazio" />
+              </div>
+            </>
+          )}
+          {!resolvedNfseProvider && (form.nfse_login || form.nfse_password) && (
+            <p className="md:col-span-3 text-sm font-medium text-amber-700">Este município ainda não possui provedor NFS-e suportado. O cadastro será salvo, mas as credenciais não serão sincronizadas.</p>
+          )}
         </div>
+      </div>
+
+      <div className="card space-y-4">
+        <div>
+          <h2 className="font-black text-[#25231f]">NFC-e e credenciais do emissor</h2>
+          <p className="mt-1 text-sm font-medium text-[#716b61]">Os dados são enviados ao emissor local após o salvamento. Ao editar, deixe um segredo em branco para manter o valor atual.</p>
+        </div>
+        <div>
+          <label className="label">Série NFC-e</label>
+          <input className="input max-w-xs" value={form.nfce_serie} onChange={(e) => setField("nfce_serie", e.target.value)} />
+        </div>
+        {([
+          { key: "hom", label: "Homologação" },
+          { key: "prod", label: "Produção" },
+        ] as const).map(({ key, label }) => (
+          <div key={key} className="rounded-lg border border-[#ebe6dc] p-4">
+            <h3 className="font-bold text-[#25231f]">{label}</h3>
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="label">Arquivo do certificado A1 (.pfx ou .p12)</label>
+                <input
+                  className="input"
+                  type="file"
+                  accept=".pfx,.p12,application/x-pkcs12"
+                  onChange={(event) => handleCertificateFile(key, event.target.files?.[0])}
+                />
+                <p className="mt-1 text-xs text-[#716b61]">
+                  {certificateFileNames[key]
+                    ? `Arquivo selecionado: ${certificateFileNames[key]}`
+                    : "Deixe em branco para manter o certificado já salvo."}
+                </p>
+              </div>
+              <div>
+                <label className="label">Senha do certificado</label>
+                <input className="input" type="password" value={form[`nfce_certificate_${key}_password` as keyof typeof form] as string} onChange={(e) => setField(`nfce_certificate_${key}_password`, e.target.value)} autoComplete="new-password" />
+              </div>
+              <div>
+                <label className="label">ID do CSC</label>
+                <input className="input" value={form[`nfce_csc_${key}_token_id` as keyof typeof form] as string} onChange={(e) => setField(`nfce_csc_${key}_token_id`, e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="label">CSC</label>
+                <input className="input" type="password" value={form[`nfce_csc_${key}_code` as keyof typeof form] as string} onChange={(e) => setField(`nfce_csc_${key}_code`, e.target.value)} autoComplete="new-password" />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="card space-y-4">

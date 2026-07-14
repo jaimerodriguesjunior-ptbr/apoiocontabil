@@ -1,0 +1,19 @@
+-- Campos de integração da empresa emissora com a nuvem-local-fiscal.
+-- Execute no SQL Editor do Supabase antes de publicar a aplicação.
+alter table company_settings add column if not exists nfce_serie text;
+alter table company_settings add column if not exists nfce_certificate_hom_content text;
+alter table company_settings add column if not exists nfce_certificate_hom_password text;
+alter table company_settings add column if not exists nfce_csc_hom_token_id text;
+alter table company_settings add column if not exists nfce_csc_hom_code text;
+alter table company_settings add column if not exists nfce_certificate_prod_content text;
+alter table company_settings add column if not exists nfce_certificate_prod_password text;
+alter table company_settings add column if not exists nfce_csc_prod_token_id text;
+alter table company_settings add column if not exists nfce_csc_prod_code text;
+alter table company_settings add column if not exists nfce_sync_status text;
+alter table company_settings add column if not exists nfce_sync_message text;
+alter table company_settings add column if not exists nfce_last_sync_at timestamptz;
+alter table company_settings add column if not exists nfse_provider text;
+alter table company_settings add column if not exists nfse_id_entidade text;
+alter table company_settings add column if not exists nfse_rps_emissor text;
+alter table company_settings add column if not exists nfse_tom_code text;
+alter table company_settings add column if not exists nfse_cadastro_economico text;
