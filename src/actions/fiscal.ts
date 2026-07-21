@@ -293,10 +293,7 @@ export async function emitirNFSe(params: EmitirParams) {
       if (isToledo) {
         if (digits.length >= 9) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}.${digits.substring(4, 6)}.${digits.substring(6, 9)}`;
         if (digits.length === 6) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}.${digits.substring(4, 6)}.000`;
-        // Toledo/Equiplano cadastra o servico nacional como 16.01.
-        // Nao inventar subitem municipal (16.01.01.000), pois ele pode nao
-        // estar habilitado para a inscricao municipal do prestador.
-        if (digits.length === 4) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}`;
+        if (digits.length === 4) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}.01.000`;
         return digits;
       }
       if (digits.length >= 6) return digits.substring(0, 6);
