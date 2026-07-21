@@ -293,10 +293,10 @@ export async function emitirNFSe(params: EmitirParams) {
       if (isToledo) {
         if (digits.length >= 9) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}.${digits.substring(4, 6)}.${digits.substring(6, 9)}`;
         if (digits.length === 6) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}.${digits.substring(4, 6)}.000`;
-        // Toledo/Equiplano exige seis digitos quando o servico informado e
-        // apenas o item nacional (16.01 -> 160100). Nao inventar o subitem
-        // municipal 16.01.01.000, pois ele pode nao estar habilitado.
-        if (digits.length === 4) return `${digits}00`;
+        // Toledo/Equiplano cadastra o servico nacional como 16.01.
+        // Nao inventar subitem municipal (16.01.01.000), pois ele pode nao
+        // estar habilitado para a inscricao municipal do prestador.
+        if (digits.length === 4) return `${digits.substring(0, 2)}.${digits.substring(2, 4)}`;
         return digits;
       }
       if (digits.length >= 6) return digits.substring(0, 6);
