@@ -678,7 +678,15 @@ export async function getInvoices(filters?: {
 
   const { data, error } = await query.limit(200);
   if (error) throw error;
-  return data || [];
+  return (data || []).filter((invoice) => {
+    const payload = invoice.payload_json;
+    return !(
+      typeof payload === "object" &&
+      payload !== null &&
+      "report_visibility" in payload &&
+      payload.report_visibility === "hidden"
+    );
+  });
 }
 
 export async function getDashboardStats() {
