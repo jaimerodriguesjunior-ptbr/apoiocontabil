@@ -36,7 +36,12 @@ const userNavItems = [
   { href: "/notas", label: "Notas Emitidas", icon: FileText },
 ];
 
-export default function Sidebar({ role }: { role: UserRole }) {
+type SidebarProps = {
+  role: UserRole;
+  organizationName: string | null;
+};
+
+export default function Sidebar({ role, organizationName }: SidebarProps) {
   const pathname = usePathname();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const navItems = role === "contador"
@@ -58,6 +63,14 @@ export default function Sidebar({ role }: { role: UserRole }) {
       <div className="border-b border-[#ded8cc] px-5 py-5">
         <span className="block text-lg font-black text-[#25231f]">Apoio Contábil</span>
         <p className="mt-1 text-xs font-medium text-[#716b61]">{subtitle}</p>
+        {role !== "contador" && (
+          <div className="mt-3 flex items-center gap-2 rounded-md bg-[#f4f0e8] px-3 py-2">
+            <Building2 size={15} className="shrink-0 text-[#0f766e]" />
+            <span className="truncate text-sm font-bold text-[#25231f]">
+              {organizationName || "Empresa não identificada"}
+            </span>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 space-y-1 p-3">
@@ -108,8 +121,15 @@ export default function Sidebar({ role }: { role: UserRole }) {
       {role !== "contador" && (
         <>
           {/* Mobile top bar */}
-          <div className="fixed top-0 inset-x-0 z-40 flex items-center justify-between border-b border-[#ebe6dc] bg-[#fffdf8]/95 px-4 py-2.5 backdrop-blur md:hidden">
-            <span className="text-sm font-black text-[#25231f]">Apoio Contábil</span>
+          <div className="fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-3 border-b border-[#ebe6dc] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur md:hidden">
+            <div className="min-w-0">
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-[#716b61]">
+                Apoio Contábil
+              </span>
+              <span className="block truncate text-sm font-black text-[#25231f]">
+                {organizationName || "Empresa não identificada"}
+              </span>
+            </div>
             <button
               type="button"
               disabled={isSigningOut}

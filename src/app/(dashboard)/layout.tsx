@@ -27,7 +27,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="app-shell flex">
-      <Sidebar role={context.role} />
+      <Sidebar
+        role={context.role}
+        organizationName={context.organization?.name ?? null}
+      />
       <main className="app-main">{children}</main>
       {fixedExpenses && (
         <FixedExpensesModal
