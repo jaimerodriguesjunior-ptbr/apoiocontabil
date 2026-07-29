@@ -118,33 +118,31 @@ export default function Sidebar({ role, organizationName }: SidebarProps) {
         {navContent}
       </aside>
 
-      {role !== "contador" && (
-        <>
-          {/* Mobile top bar */}
-          <div className="fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-3 border-b border-[#ebe6dc] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur md:hidden">
-            <div className="min-w-0">
-              <span className="block text-[10px] font-bold uppercase tracking-wide text-[#716b61]">
-                Apoio Contábil
-              </span>
-              <span className="block truncate text-sm font-black text-[#25231f]">
-                {organizationName || "Empresa não identificada"}
-              </span>
-            </div>
-            <button
-              type="button"
-              disabled={isSigningOut}
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold text-[#716b61] transition-colors hover:bg-[#f4f0e8] hover:text-[#25231f] disabled:opacity-50"
-            >
-              <LogOut size={14} />
-              {isSigningOut ? "Saindo..." : "Sair"}
-            </button>
-          </div>
+      {/* Mobile top bar */}
+      <div className="fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-3 border-b border-[#ebe6dc] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur md:hidden">
+        <div className="min-w-0">
+          <span className="block text-[10px] font-bold uppercase tracking-wide text-[#716b61]">
+            Apoio Contábil
+          </span>
+          <span className="block truncate text-sm font-black text-[#25231f]">
+            {role === "contador" ? "Painel do Contador" : (organizationName || "Empresa não identificada")}
+          </span>
+        </div>
+        <button
+          type="button"
+          disabled={isSigningOut}
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold text-[#716b61] transition-colors hover:bg-[#f4f0e8] hover:text-[#25231f] disabled:opacity-50"
+        >
+          <LogOut size={14} />
+          {isSigningOut ? "Saindo..." : "Sair"}
+        </button>
+      </div>
 
-          <nav
-            className="fixed inset-x-3 bottom-3 z-40 grid rounded-xl border border-[#ded8cc] bg-[#fffdf8]/95 p-1 shadow-[0_16px_40px_rgba(37,35,31,0.16)] backdrop-blur md:hidden"
-            style={{ gridTemplateColumns: `repeat(${navItems.length}, 1fr)` }}
-          >
+      <nav
+        className="fixed inset-x-3 bottom-3 z-40 grid rounded-xl border border-[#ded8cc] bg-[#fffdf8]/95 p-1 shadow-[0_16px_40px_rgba(37,35,31,0.16)] backdrop-blur md:hidden"
+        style={{ gridTemplateColumns: `repeat(${navItems.length}, 1fr)` }}
+      >
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive =
             pathname === href ||
@@ -174,9 +172,7 @@ export default function Sidebar({ role, organizationName }: SidebarProps) {
             </Link>
           );
         })}
-          </nav>
-        </>
-      )}
+      </nav>
     </>
   );
 }
