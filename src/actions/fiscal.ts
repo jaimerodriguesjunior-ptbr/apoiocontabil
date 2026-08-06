@@ -3,10 +3,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { getNuvemFiscalToken } from "@/lib/nuvemfiscal";
 import { revalidatePath } from "next/cache";
-import { requireCompanyOperatorContext } from "@/lib/auth-context";
+import { requireFiscalModule } from "@/lib/auth-context";
 
 async function getOrgId() {
-  const context = await requireCompanyOperatorContext();
+  const context = await requireFiscalModule("nfse");
   return { supabase: context.supabase, orgId: context.orgId as string, userId: context.userId };
 }
 

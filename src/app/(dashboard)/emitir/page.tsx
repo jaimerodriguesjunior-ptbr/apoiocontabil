@@ -3,8 +3,17 @@ import { getCompany } from "@/actions/empresa";
 import { getCatalogItems } from "@/actions/catalogo";
 import EmitirForm from "./EmitirForm";
 import { FilePlus } from "lucide-react";
+import { getAuthContext } from "@/lib/auth-context";
+import { getFiscalModule } from "@/lib/fiscal-modules";
+import { redirect } from "next/navigation";
 
 export default async function EmitirPage() {
+  const context = await getAuthContext();
+  const fiscalModule = getFiscalModule(context?.organization?.module_access);
+
+  if (fiscalModule === "nfe") redirect("/emitir/nfe");
+  if (fiscalModule !== "nfse") redirect("/dashboard");
+
   const [clientes, empresa, catalogItems] = await Promise.all([getClients(), getCompany(), getCatalogItems()]);
 
   if (!empresa?.cnpj) {

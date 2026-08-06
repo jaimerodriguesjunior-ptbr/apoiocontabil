@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getFiscalModule, type FiscalModule } from "@/lib/fiscal-modules";
 
 export type UserRole = "contador" | "cliente_admin" | "cliente_usuario";
 export type ModuleAccess = string;
@@ -129,6 +130,17 @@ export async function requireCompanyOperatorContext() {
 
   if (!context.orgId) {
     throw new Error("Empresa nao encontrada para o usuario.");
+  }
+
+  return context;
+}
+
+export async function requireFiscalModule(module: FiscalModule) {
+  const context = await requireCompanyOperatorContext();
+  const activeModule = getFiscalModule(context.organization?.module_access);
+
+  if (activeModule !== module) {
+    throw new Error("Este tipo de emissao nao esta liberado pelo escritorio contabil.");
   }
 
   return context;

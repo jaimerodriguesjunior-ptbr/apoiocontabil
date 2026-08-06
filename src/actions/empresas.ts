@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { requireAuthContext } from "@/lib/auth-context";
 import { syncCompanyWithLocalFiscal } from "@/lib/nuvem-local-fiscal";
+import { getFiscalModule } from "@/lib/fiscal-modules";
 
 type CompanyInput = {
   id?: string;
@@ -130,6 +131,10 @@ export async function getAccountantCompany(id: string) {
 export async function saveAccountantCompany(data: CompanyInput) {
   const context = await requireAccountant();
   const admin = createAdminClient();
+
+  if (!getFiscalModule(data.moduleAccess)) {
+    return { error: "Selecione exatamente um modulo fiscal para a empresa." };
+  }
 
   if (!data.name.trim()) return { error: "Informe o nome da empresa." };
 
