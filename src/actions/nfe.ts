@@ -289,6 +289,7 @@ export async function sendNFeVendaDraft(invoiceId: string) {
   if (!invoice || invoice.status !== "draft") return { error: "Rascunho de NF-e nao encontrado ou ja enviado." };
   const items = ((invoice.payload_json as { items?: StoredItem[] } | null)?.items || []);
   if (!invoice.client_id || !items.length) return { error: "Rascunho sem destinatario ou itens." };
+  if (items.some((item) => !Number.isFinite(Number(item.quantidade)) || Number(item.quantidade) <= 0 || !Number.isFinite(Number(item.valor_unitario)) || Number(item.valor_unitario) <= 0)) return { error: "Rascunho invalido: quantidade e valor unitario devem ser maiores que zero." };
   const [{ data: company }, { data: client }] = await Promise.all([
     context.supabase.from("company_settings").select("*").eq("organization_id", orgId).single(),
     context.supabase.from("clients").select("*").eq("id", invoice.client_id).eq("organization_id", orgId).single(),
@@ -367,6 +368,20 @@ export async function sendNFeVendaDraft(invoiceId: string) {
     revalidatePath("/notas");
     return { error: message };
   }
+}
+
+export async function discardNFeVendaDraft(invoiceId: string) {
+  const context = await requireFiscalModule("nfe");
+  const { error } = await context.supabase
+    .from("fiscal_invoices")
+    .delete()
+    .eq("id", invoiceId)
+    .eq("organization_id", context.orgId as string)
+    .eq("tipo_documento", "NFe")
+    .eq("status", "draft");
+  if (error) return { error: "Nao foi possivel reabrir o rascunho." };
+  revalidatePath("/notas");
+  return { success: true };
 }
 
 export async function consultarNFe(invoiceId: string) {

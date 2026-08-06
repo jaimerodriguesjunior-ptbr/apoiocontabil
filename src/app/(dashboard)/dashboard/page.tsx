@@ -31,8 +31,8 @@ export default async function DashboardPage() {
   const fiscalModule = getFiscalModule(context?.organization?.module_access);
   const emissionHref = fiscalModule === "nfe" ? "/emitir/nfe" : "/emitir";
   const emissionDescription = fiscalModule
-    ? `Emissao de ${getFiscalModuleLabel(fiscalModule)}`
-    : "Aguardando liberacao do escritorio";
+    ? `Emiss\u00e3o de ${getFiscalModuleLabel(fiscalModule)}`
+    : "Aguardando libera\u00e7\u00e3o do escrit\u00f3rio";
   const recentes = notas.slice(0, 5) as RecentInvoice[];
   const mesLabel = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
           </div>
           <div className="min-w-0">
             <p className="text-lg font-black text-[#25231f]">Importar XML</p>
-            <p className="text-sm font-medium text-[#716b61]">Importe notas para consulta e devolucao</p>
+            <p className="text-sm font-medium text-[#716b61]">Importe notas para consulta e devolu&ccedil;&atilde;o</p>
           </div>
         </Link>
         ) : null}

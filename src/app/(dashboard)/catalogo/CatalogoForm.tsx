@@ -125,7 +125,7 @@ export default function CatalogoForm() {
           {activeTab === "produto" && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="label">Codigo interno</label>
+                <label className="label">C&oacute;digo interno</label>
                 <input className="input" value={form.codigo} onChange={(e) => setField("codigo", e.target.value)} placeholder="Ex: 001" />
               </div>
               <div>
@@ -134,7 +134,7 @@ export default function CatalogoForm() {
               </div>
               <div>
                 <label className="label">NCM</label>
-                <input className="input" value={form.ncm} onChange={(e) => setField("ncm", e.target.value)} placeholder="Obrigatorio para NF-e" />
+                <input className="input" value={form.ncm} onChange={(e) => setField("ncm", e.target.value)} placeholder="Obrigat&oacute;rio para NF-e" />
               </div>
             </div>
           )}

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Trash2 } from "lucide-react";
-import { saveNFeVendaDraft, sendNFeVendaDraft } from "@/actions/nfe";
+import { discardNFeVendaDraft, saveNFeVendaDraft, sendNFeVendaDraft } from "@/actions/nfe";
 
 type Client = { id: string; nome: string; cpf_cnpj?: string | null };
 type Product = { id: string; name: string; price?: number | null; ncm?: string | null; codigo?: string | null; unidade?: string | null };
@@ -30,6 +30,7 @@ export default function NFeVendaForm({ clients, products, environment }: { clien
   const [success, setSuccess] = useState<string | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
   const total = items.reduce((sum, item) => sum + item.quantidade * item.valorUnitario, 0);
+  const canSaveDraft = items.length > 0 && items.every((item) => item.quantidade > 0 && item.valorUnitario > 0);
 
   function addProduct(selectedProductId: string) {
     const product = products.find((entry) => entry.id === selectedProductId);
@@ -75,7 +76,18 @@ export default function NFeVendaForm({ clients, products, environment }: { clien
     });
   }
 
-  return <form onSubmit={submit} className="space-y-5">
+  function editDraft() {
+    if (!draftId) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await discardNFeVendaDraft(draftId);
+      if (result.error) return setError(result.error);
+      setDraftId(null);
+      setSuccess(null);
+    });
+  }
+
+  return <form onSubmit={submit} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} className="space-y-5">
     <div className="card space-y-4">
       <div className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${environment === "production" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>Ambiente: {environment === "production" ? "Produção" : "Homologação"}</div>
       <div><label className="label">Destinatario</label><div className="flex gap-2"><select className="input" value={clientId} onChange={(event) => setClientId(event.target.value)} required><option value="">Selecione o cliente...</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.nome} {client.cpf_cnpj ? `- ${client.cpf_cnpj}` : ""}</option>)}</select><Link href="/clientes/novo" className="btn-secondary inline-flex h-11 w-11 shrink-0 items-center justify-center text-lg" title="Cadastrar cliente" aria-label="Cadastrar cliente">+</Link></div></div>
@@ -89,6 +101,6 @@ export default function NFeVendaForm({ clients, products, environment }: { clien
     </div>
     {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
     {success && <p className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700"><CheckCircle2 size={16} /> {success}</p>}
-    <div className="flex flex-wrap gap-3"><button type="submit" className="btn-primary" disabled={isPending || !items.length || Boolean(draftId)}>{isPending ? "Validando..." : draftId ? "Rascunho pronto para envio" : "Salvar e validar rascunho"}</button>{draftId && <button type="button" onClick={sendDraft} className="btn-secondary" disabled={isPending}>Enviar NF-e em {environment === "production" ? "produção" : "homologação"}</button>}</div>
+    <div className="flex flex-wrap items-center gap-3">{draftId ? <span className="rounded-lg bg-emerald-100 px-4 py-3 text-sm font-bold text-emerald-800">Rascunho pronto para envio</span> : <button type="submit" className="btn-primary" disabled={isPending || !canSaveDraft}>{isPending ? "Validando..." : "Salvar e validar rascunho"}</button>}{draftId && <><button type="button" onClick={sendDraft} className="btn-secondary" disabled={isPending}>Enviar NF-e em {environment === "production" ? "produção" : "homologação"}</button><button type="button" onClick={editDraft} className="btn-secondary" disabled={isPending}>Voltar e corrigir</button></>}</div>
   </form>;
 }
