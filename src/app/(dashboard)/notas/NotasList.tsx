@@ -16,6 +16,9 @@ type Nota = {
   data_emissao?: string | null;
   created_at?: string | null;
   descricao_servico?: string | null;
+  natureza_operacao?: string | null;
+  tipo_documento?: string | null;
+  direction?: string | null;
   valor_total?: number | null;
   clients?: { nome?: string | null } | null;
 };
@@ -45,7 +48,7 @@ export default function NotasList({
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const errorNotas = useMemo(
-    () => notas.filter((nota) => nota.status === "error" && nota.client_id),
+    () => notas.filter((nota) => nota.status === "error" && nota.client_id && nota.tipo_documento === "NFSe"),
     [notas]
   );
   const selectedCount = selectedIds.length;
@@ -68,7 +71,7 @@ export default function NotasList({
   }
 
   function createSpecialBatch() {
-    const selectedNotas = notas.filter((nota) => selectedIds.includes(nota.id) && nota.status === "error" && nota.client_id);
+    const selectedNotas = notas.filter((nota) => selectedIds.includes(nota.id) && nota.status === "error" && nota.client_id && nota.tipo_documento === "NFSe");
     if (selectedNotas.length === 0) return;
 
     const byClient = new Map<string, SpecialItem>();
@@ -140,7 +143,7 @@ export default function NotasList({
             key={nota.id}
             nota={nota}
             variant="mobile"
-            selectable={nota.status === "error" && Boolean(nota.client_id)}
+            selectable={nota.status === "error" && nota.tipo_documento === "NFSe" && Boolean(nota.client_id)}
             selected={selectedIds.includes(nota.id)}
             onToggleSelect={() => toggle(nota.id)}
           />
@@ -167,7 +170,7 @@ export default function NotasList({
                 key={nota.id}
                 nota={nota}
                 variant="desktop"
-                selectable={nota.status === "error" && Boolean(nota.client_id)}
+                selectable={nota.status === "error" && nota.tipo_documento === "NFSe" && Boolean(nota.client_id)}
                 selected={selectedIds.includes(nota.id)}
                 onToggleSelect={() => toggle(nota.id)}
               />

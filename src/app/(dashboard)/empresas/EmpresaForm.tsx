@@ -62,6 +62,7 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
     aliquota_iss_padrao: valueFrom(settings, "aliquota_iss_padrao") || "3",
     environment: valueFrom(settings, "environment") || "production",
     nfce_serie: valueFrom(settings, "nfce_serie") || "1",
+    nfe_serie: valueFrom(settings, "nfe_serie") || "1",
   });
 
   const setField = (field: string, value: string | boolean) =>
@@ -398,6 +399,10 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
         <div>
           <label className="label">Série NFC-e</label>
           <input className="input max-w-xs" value={form.nfce_serie} onChange={(e) => setField("nfce_serie", e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Serie NF-e</label>
+          <input className="input max-w-xs" type="number" min="1" value={form.nfe_serie} onChange={(e) => setField("nfe_serie", e.target.value)} />
         </div>
         {([
           { key: "hom", label: "Homologação" },

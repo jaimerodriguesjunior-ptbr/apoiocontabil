@@ -16,7 +16,9 @@ export function parseFiscalModules(value?: string | null): FiscalModule[] {
 
 export function getFiscalModule(value?: string | null): FiscalModule | null {
   const modules = parseFiscalModules(value);
-  return modules.length === 1 ? modules[0] : null;
+  // Registros antigos podiam conter mais de um modulo. Mantemos o primeiro ate o
+  // contador salvar novamente a empresa, quando a validacao exige um modulo unico.
+  return modules[0] ?? null;
 }
 
 export function getFiscalModuleLabel(module: FiscalModule) {

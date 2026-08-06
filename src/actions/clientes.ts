@@ -194,6 +194,8 @@ type ClientInput = {
   uf?: string;
   cep?: string;
   codigo_municipio_ibge?: string;
+  inscricao_estadual?: string;
+  ind_ie_dest?: 1 | 2 | 9;
   services?: ServiceInput[];
 };
 
@@ -215,6 +217,8 @@ export async function saveClient(data: ClientInput) {
     uf: data.uf || null,
     cep: data.cep || null,
     codigo_municipio_ibge: data.codigo_municipio_ibge || null,
+    inscricao_estadual: data.inscricao_estadual || null,
+    ind_ie_dest: data.ind_ie_dest || null,
   };
 
   if (clientId) {

@@ -41,6 +41,7 @@ type CompanyInput = {
   aliquota_iss_padrao?: number | null;
   environment?: string;
   nfce_serie?: string;
+  nfe_serie?: string;
   nfce_certificate_hom_content?: string;
   nfce_certificate_hom_password?: string;
   nfce_csc_hom_token_id?: string;
@@ -110,7 +111,7 @@ export async function getAccountantCompany(id: string) {
   const [{ data: companySettings }, { data: users }] = await Promise.all([
     admin
       .from("company_settings")
-      .select("organization_id, cnpj, razao_social, nome_fantasia, inscricao_municipal, inscricao_estadual, regime_tributario, codigo_municipio_ibge, cidade, uf, cep, logradouro, numero, complemento, bairro, email_contato, telefone, nfse_login, nfse_provider, nfse_id_entidade, nfse_rps_emissor, nfse_tom_code, nfse_cadastro_economico, cnae_padrao, codigo_servico_padrao, aliquota_iss_padrao, environment, nfce_serie, nfce_sync_status, nfce_sync_message, nfce_last_sync_at")
+      .select("organization_id, cnpj, razao_social, nome_fantasia, inscricao_municipal, inscricao_estadual, regime_tributario, codigo_municipio_ibge, cidade, uf, cep, logradouro, numero, complemento, bairro, email_contato, telefone, nfse_login, nfse_provider, nfse_id_entidade, nfse_rps_emissor, nfse_tom_code, nfse_cadastro_economico, cnae_padrao, codigo_servico_padrao, aliquota_iss_padrao, environment, nfce_serie, nfe_serie, nfce_sync_status, nfce_sync_message, nfce_last_sync_at")
       .eq("organization_id", id)
       .maybeSingle(),
     admin
@@ -213,6 +214,7 @@ export async function saveAccountantCompany(data: CompanyInput) {
     aliquota_iss_padrao: data.aliquota_iss_padrao ?? 3,
     environment: data.environment || "production",
     nfce_serie: cleanText(data.nfce_serie),
+    nfe_serie: Number(data.nfe_serie || 1),
     nfce_certificate_hom_content: preserveSecret(data.nfce_certificate_hom_content, existingSecrets?.nfce_certificate_hom_content),
     nfce_certificate_hom_password: preserveSecret(data.nfce_certificate_hom_password, existingSecrets?.nfce_certificate_hom_password),
     nfce_csc_hom_token_id: preserveSecret(data.nfce_csc_hom_token_id, existingSecrets?.nfce_csc_hom_token_id),

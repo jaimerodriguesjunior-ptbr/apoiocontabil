@@ -1,4 +1,5 @@
 import { getInvoices } from "@/actions/fiscal";
+import { getAuthContext } from "@/lib/auth-context";
 import { FileText } from "lucide-react";
 import NotasFilter from "./NotasFilter";
 import NotasList from "./NotasList";
@@ -14,6 +15,9 @@ type Nota = {
   data_emissao?: string | null;
   created_at?: string | null;
   descricao_servico?: string | null;
+  natureza_operacao?: string | null;
+  tipo_documento?: string | null;
+  direction?: string | null;
   valor_total?: number | null;
   clients?: { nome?: string | null } | null;
 };
@@ -32,10 +36,15 @@ export default async function NotasPage({
   }>;
 }) {
   const params = await searchParams;
+  const context = await getAuthContext();
   const mes = firstParam(params.mes);
   const status = firstParam(params.status);
   const ambienteParam = firstParam(params.ambiente);
-  const ambienteAtual = ambienteParam || "production";
+  const { data: settings } = context?.orgId
+    ? await context.supabase.from("company_settings").select("environment").eq("organization_id", context.orgId).maybeSingle()
+    : { data: null };
+  const ambienteConfigurado = settings?.environment === "homologation" ? "homologation" : "production";
+  const ambienteAtual = ambienteParam || ambienteConfigurado;
   const environment =
     ambienteAtual === "production" || ambienteAtual === "homologation"
       ? ambienteAtual

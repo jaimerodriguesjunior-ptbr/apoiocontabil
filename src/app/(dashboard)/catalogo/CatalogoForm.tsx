@@ -15,7 +15,6 @@ export default function CatalogoForm() {
     price: "",
     ncm: "",
     codigo: "",
-    cfop: "",
     unidade: "UN",
   });
 
@@ -36,7 +35,6 @@ export default function CatalogoForm() {
         price: Number(form.price.replace(",", ".")) || 0,
         ncm: form.ncm,
         codigo: form.codigo,
-        cfop: form.cfop,
         unidade: form.unidade,
       });
 
@@ -46,7 +44,7 @@ export default function CatalogoForm() {
       }
 
       setSuccess(true);
-      setForm({ name: "", price: "", ncm: "", codigo: "", cfop: "", unidade: "UN" });
+      setForm({ name: "", price: "", ncm: "", codigo: "", unidade: "UN" });
     });
   }
 
@@ -137,10 +135,6 @@ export default function CatalogoForm() {
               <div>
                 <label className="label">NCM</label>
                 <input className="input" value={form.ncm} onChange={(e) => setField("ncm", e.target.value)} placeholder="ObrigatÃ³rio para NF-e" />
-              </div>
-              <div>
-                <label className="label">CFOP padrÃ£o</label>
-                <input className="input" value={form.cfop} onChange={(e) => setField("cfop", e.target.value)} placeholder="Ex: 5102" maxLength={4} />
               </div>
             </div>
           )}

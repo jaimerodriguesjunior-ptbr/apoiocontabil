@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { cancelarNFSe, consultarNFSe } from "@/actions/fiscal";
-import { AlertCircle, Ban, ExternalLink, FileDown, RefreshCw, X } from "lucide-react";
+import { cancelarNFe, consultarNFe } from "@/actions/nfe";
+import { AlertCircle, Ban, ExternalLink, FileDown, RefreshCw, RotateCcw, X } from "lucide-react";
 
 const STATUS: Record<string, { label: string; className: string }> = {
   authorized: { label: "Autorizada", className: "bg-green-100 text-green-700" },
@@ -22,6 +24,9 @@ type Nota = {
   data_emissao?: string | null;
   created_at?: string | null;
   descricao_servico?: string | null;
+  natureza_operacao?: string | null;
+  tipo_documento?: string | null;
+  direction?: string | null;
   valor_total?: number | null;
   clients?: { nome?: string | null } | null;
 };
@@ -34,6 +39,7 @@ function ActionButtons({
   pdfUrl,
   setShowError,
   status,
+  returnHref,
   xmlUrl,
 }: {
   cancelar: () => void;
@@ -43,6 +49,7 @@ function ActionButtons({
   pdfUrl?: string | null;
   setShowError: (show: boolean) => void;
   status: string;
+  returnHref?: string;
   xmlUrl?: string | null;
 }) {
   return (
@@ -56,11 +63,11 @@ function ActionButtons({
       >
         <RefreshCw size={15} className={isPending ? "animate-spin" : ""} />
       </button>
-      {status === "error" && errorMsg && (
+      {["error", "processing"].includes(status) && errorMsg && (
         <button
           onClick={() => setShowError(true)}
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
-          title="Ver erro"
+          title={status === "processing" ? "Ver aviso" : "Ver erro"}
           type="button"
         >
           <AlertCircle size={15} />
@@ -77,6 +84,7 @@ function ActionButtons({
           <Ban size={15} />
         </button>
       )}
+      {returnHref && <Link href={returnHref} className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-amber-50 hover:text-amber-700" title="Emitir devolucao"><RotateCcw size={15} /></Link>}
       {pdfUrl && (
         <a href={pdfUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-green-50 hover:text-green-600" title="PDF">
           <FileDown size={15} />
@@ -117,23 +125,28 @@ export default function NotaRow({
   const dataFmt = dataEmissao ? new Date(dataEmissao).toLocaleDateString("pt-BR") : "-";
   const valorFmt = (nota.valor_total || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const cliente = nota.clients?.nome || "Cliente nao encontrado";
-  const descricao = nota.descricao_servico || "-";
+  const descricao = nota.natureza_operacao || nota.descricao_servico || nota.tipo_documento || "-";
+  const returnHref = nota.tipo_documento === "NFe" && nota.direction === "input" && status === "authorized" ? `/emitir/nfe/devolucao?origem=${nota.id}` : undefined;
 
   const consultar = useCallback(() => {
     startTransition(async () => {
-      const res = await consultarNFSe(nota.id);
+      const res = nota.tipo_documento === "NFe" ? await consultarNFe(nota.id) : await consultarNFSe(nota.id);
       if (res.success && res.data) {
+        const data = res.data as Record<string, unknown>;
         setStatus(res.status || status);
-        setNumero(res.data.numero || numero);
-        setPdfUrl(res.data.pdf_url || res.data.link_url || pdfUrl);
-        setXmlUrl(res.data.xml_url || xmlUrl);
-        setErrorMsg(res.errorMessage || res.data.motivo_status || errorMsg);
+        setNumero(typeof data.numero === "string" ? data.numero : numero);
+        setPdfUrl(typeof data.pdf_url === "string" ? data.pdf_url : typeof data.link_url === "string" ? data.link_url : pdfUrl);
+        setXmlUrl(typeof data.xml_url === "string" ? data.xml_url : xmlUrl);
+        const errorMessage = "errorMessage" in res ? res.errorMessage : null;
+        const authorization = data.autorizacao as Record<string, unknown> | undefined;
+        const detailedReason = typeof authorization?.motivo_status === "string" ? authorization.motivo_status : typeof data.motivo === "string" ? data.motivo : typeof data.motivo_status === "string" ? data.motivo_status : null;
+        setErrorMsg(errorMessage || detailedReason || errorMsg);
       } else if (!res.success) {
         setStatus("error");
         setErrorMsg(res.error || "Erro ao consultar status da nota.");
       }
     });
-  }, [errorMsg, nota.id, numero, pdfUrl, status, xmlUrl]);
+  }, [errorMsg, nota.id, nota.tipo_documento, numero, pdfUrl, status, xmlUrl]);
 
   function cancelar() {
     const confirmed = window.confirm("Tem certeza que deseja cancelar esta nota?");
@@ -143,7 +156,7 @@ export default function NotaRow({
     if (motivo === null) return;
 
     startTransition(async () => {
-      const res = await cancelarNFSe(nota.id, motivo);
+      const res = nota.tipo_documento === "NFe" ? await cancelarNFe(nota.id, motivo) : await cancelarNFSe(nota.id, motivo);
       if (res.success) {
         setStatus(res.status || "cancelled");
         setErrorMsg(null);
@@ -185,8 +198,8 @@ export default function NotaRow({
           </div>
 
           <p className="line-clamp-2 text-sm text-gray-600">{descricao}</p>
-          {status === "error" && errorMsg && (
-            <p className="mt-2 line-clamp-2 text-xs text-red-600">{errorMsg}</p>
+          {(["error", "processing"].includes(status) && errorMsg) && (
+            <p className={`mt-2 line-clamp-2 text-xs ${status === "error" ? "text-red-600" : "text-amber-700"}`}>{errorMsg}</p>
           )}
 
           <div className="mt-3 flex items-center justify-between gap-3">
@@ -199,6 +212,7 @@ export default function NotaRow({
               pdfUrl={pdfUrl}
               setShowError={setShowError}
               status={status}
+              returnHref={returnHref}
               xmlUrl={xmlUrl}
             />
           </div>
@@ -235,8 +249,8 @@ export default function NotaRow({
             <td className="px-4 py-3 text-gray-500">{numero || "-"}</td>
             <td className="px-4 py-3">
               <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${st.className}`}>{st.label}</span>
-              {status === "error" && errorMsg && (
-                <p className="mt-0.5 max-w-[180px] truncate text-xs text-red-500" title={errorMsg}>{errorMsg}</p>
+              {(["error", "processing"].includes(status) && errorMsg) && (
+                <p className={`mt-0.5 max-w-[180px] truncate text-xs ${status === "error" ? "text-red-500" : "text-amber-700"}`} title={errorMsg}>{errorMsg}</p>
               )}
             </td>
             <td className="px-4 py-3">
@@ -248,6 +262,7 @@ export default function NotaRow({
                 pdfUrl={pdfUrl}
                 setShowError={setShowError}
                 status={status}
+                returnHref={returnHref}
                 xmlUrl={xmlUrl}
               />
             </td>

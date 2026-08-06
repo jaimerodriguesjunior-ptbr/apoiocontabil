@@ -12,7 +12,6 @@ type CatalogItemInput = {
   price: number;
   ncm?: string;
   codigo?: string;
-  cfop?: string;
   unidade?: string;
 };
 
@@ -65,7 +64,6 @@ export async function saveCatalogItem(input: CatalogItemInput) {
     price: Number.isFinite(input.price) ? input.price : 0,
     ncm: input.ncm?.trim() || null,
     codigo: input.codigo?.trim() || null,
-    cfop: input.cfop?.replace(/\D/g, "") || null,
     unidade: input.unidade?.trim().toUpperCase() || "UN",
     updated_at: new Date().toISOString(),
   };

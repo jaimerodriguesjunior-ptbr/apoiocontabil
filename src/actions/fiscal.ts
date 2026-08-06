@@ -3,10 +3,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { getNuvemFiscalToken } from "@/lib/nuvemfiscal";
 import { revalidatePath } from "next/cache";
-import { requireFiscalModule } from "@/lib/auth-context";
+import { requireCompanyOperatorContext, requireFiscalModule } from "@/lib/auth-context";
 
 async function getOrgId() {
-  const context = await requireFiscalModule("nfse");
+  const context = await requireCompanyOperatorContext();
   return { supabase: context.supabase, orgId: context.orgId as string, userId: context.userId };
 }
 
@@ -25,6 +25,15 @@ function toMoneyNumber(value: unknown, fallback = 0): number {
 
 function onlyDigits(value: unknown): string {
   return String(value || "").replace(/\D/g, "");
+}
+
+// Os nomes NUVEMFISCAL_* sao legados. Esta aplicacao usa somente a Nuvem Local Fiscal;
+// nunca use fallback para a Nuvem Fiscal externa, que esta desativada.
+function getNuvemLocalFiscalBaseUrl(environment: "production" | "homologation") {
+  const url = (environment === "production" ? process.env.NUVEMFISCAL_PROD_URL : process.env.NUVEMFISCAL_HOM_URL) || "";
+  const baseUrl = url.replace(/\/+$/, "");
+  if (!baseUrl) throw new Error(`URL da Nuvem Local Fiscal de ${environment === "production" ? "producao" : "homologacao"} nao configurada.`);
+  return baseUrl;
 }
 
 function hasValidCpfOrCnpj(value: unknown): boolean {
@@ -125,7 +134,8 @@ function isMissingBatchOriginColumn(error: unknown) {
 }
 
 export async function emitirNFSe(params: EmitirParams) {
-  const { supabase, orgId } = await getOrgId();
+  const context = await requireFiscalModule("nfse");
+  const { supabase, orgId } = { supabase: context.supabase, orgId: context.orgId as string };
   let invoiceId: string | null = null;
 
   try {
@@ -205,10 +215,7 @@ export async function emitirNFSe(params: EmitirParams) {
     if (totalFinal <= 0) throw new Error("Valor deve ser maior que zero.");
 
     const token = await getNuvemFiscalToken(env);
-    const baseUrl =
-      env === "production"
-        ? process.env.NUVEMFISCAL_PROD_URL || "https://api.nuvemfiscal.com.br"
-        : process.env.NUVEMFISCAL_HOM_URL || "https://api.sandbox.nuvemfiscal.com.br";
+    const baseUrl = getNuvemLocalFiscalBaseUrl(env);
 
     const cnpj = onlyDigits(company.cnpj || company.cpf_cnpj);
     const inscricaoMunicipal = String(company.inscricao_municipal || "")
@@ -510,10 +517,7 @@ export async function consultarNFSe(invoiceId: string) {
 
   const env = (invoice.environment as "production" | "homologation") || "production";
   const token = await getNuvemFiscalToken(env);
-  const baseUrl =
-    env === "production"
-      ? process.env.NUVEMFISCAL_PROD_URL || "https://api.nuvemfiscal.com.br"
-      : process.env.NUVEMFISCAL_HOM_URL || "https://api.sandbox.nuvemfiscal.com.br";
+  const baseUrl = getNuvemLocalFiscalBaseUrl(env);
 
   const response = await fetch(`${baseUrl}/nfse/${invoice.nuvemfiscal_uuid}`, {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -594,10 +598,7 @@ export async function cancelarNFSe(invoiceId: string, motivo: string, codigo?: s
 
   const env = (invoice.environment as "production" | "homologation") || "production";
   const token = await getNuvemFiscalToken(env);
-  const baseUrl =
-    env === "production"
-      ? process.env.NUVEMFISCAL_PROD_URL || "https://api.nuvemfiscal.com.br"
-      : process.env.NUVEMFISCAL_HOM_URL || "https://api.sandbox.nuvemfiscal.com.br";
+  const baseUrl = getNuvemLocalFiscalBaseUrl(env);
 
   const response = await fetch(`${baseUrl}/nfse/${invoice.nuvemfiscal_uuid}/cancelamento`, {
     method: "POST",
@@ -674,7 +675,11 @@ export async function getInvoices(filters?: {
   if (filters?.mes) query = query.eq("mes_referencia", filters.mes);
   if (filters?.status) query = query.eq("status", filters.status);
   if (filters?.clientId) query = query.eq("client_id", filters.clientId);
-  if (filters?.environment) query = query.eq("environment", filters.environment);
+  if (filters?.environment) {
+    // Entradas importadas precisam aparecer tambem no ambiente configurado para que
+    // possam ser usadas como origem de devolucao, mesmo que a NF-e recebida seja de producao.
+    query = query.or(`environment.eq.${filters.environment},direction.eq.input`);
+  }
 
   const { data, error } = await query.limit(200);
   if (error) throw error;
