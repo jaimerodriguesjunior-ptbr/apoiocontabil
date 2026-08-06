@@ -30,9 +30,12 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(arrayBuffer);
         const base64Cert = buffer.toString("base64");
 
-        const baseUrl = environment === "production"
-            ? (process.env.NUVEMFISCAL_PROD_URL || "https://api.nuvemfiscal.com.br")
-            : (process.env.NUVEMFISCAL_HOM_URL || "https://api.sandbox.nuvemfiscal.com.br");
+        // NUVEMFISCAL_* e getNuvemFiscalToken sao nomes legados; o certificado e
+        // enviado exclusivamente para a Nuvem Local Fiscal.
+        const baseUrl = ((environment === "production" ? process.env.NUVEMFISCAL_PROD_URL : process.env.NUVEMFISCAL_HOM_URL) || "").replace(/\/+$/, "");
+        if (!baseUrl) {
+            return NextResponse.json({ error: "URL da Nuvem Local Fiscal nao configurada." }, { status: 500 });
+        }
 
         const response = await fetch(`${baseUrl}/empresas/${cnpj.replace(/\D/g, "")}/certificado`, {
             method: "PUT",

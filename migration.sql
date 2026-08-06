@@ -68,6 +68,8 @@ create table if not exists clients (
   uf text,
   cep text,
   codigo_municipio_ibge text,
+  inscricao_estadual text,
+  ind_ie_dest integer check (ind_ie_dest in (1, 2, 9)),
   ativo boolean default true,
   created_at timestamptz default now(),
   updated_at timestamptz default now()

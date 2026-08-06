@@ -51,7 +51,7 @@ begin
   ) then
     alter table organizations
       add constraint organizations_module_access_check
-      check (module_access in ('nfse', 'nfce', 'nfse_nfce'))
+      check (module_access in ('nfse', 'nfce', 'nfe', 'nfse_nfce'))
       not valid;
   end if;
 end;

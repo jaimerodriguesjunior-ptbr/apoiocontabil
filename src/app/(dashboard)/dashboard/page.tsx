@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getDashboardStats, getInvoices } from "@/actions/fiscal";
 import { getAuthContext } from "@/lib/auth-context";
-import { AlertCircle, ArrowUpRight, Boxes, FilePlus, FileText, ListOrdered, ReceiptText, Settings, TrendingUp } from "lucide-react";
+import { getFiscalModule, getFiscalModuleLabel } from "@/lib/fiscal-modules";
+import { AlertCircle, ArrowUpRight, Boxes, FilePlus, FileText, FileUp, ListOrdered, ReceiptText, Settings, TrendingUp } from "lucide-react";
 
 const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   authorized: { label: "Autorizada", className: "bg-emerald-50 text-emerald-700" },
@@ -27,6 +28,11 @@ export default async function DashboardPage() {
   ]);
 
   const isAdmin = context?.role === "cliente_admin" || context?.role === "contador";
+  const fiscalModule = getFiscalModule(context?.organization?.module_access);
+  const emissionHref = fiscalModule === "nfe" ? "/emitir/nfe" : "/emitir";
+  const emissionDescription = fiscalModule
+    ? `Emiss\u00e3o de ${getFiscalModuleLabel(fiscalModule)}`
+    : "Aguardando libera\u00e7\u00e3o do escrit\u00f3rio";
   const recentes = notas.slice(0, 5) as RecentInvoice[];
   const mesLabel = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
@@ -54,7 +60,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Link
-          href="/emitir"
+          href={emissionHref}
           className="group flex min-h-28 items-center gap-4 rounded-lg border border-[#d6cec0] bg-[#0f766e] p-5 text-white shadow-[0_20px_45px_rgba(15,118,110,0.18)] transition-transform hover:-translate-y-0.5"
         >
           <div className="rounded-md bg-white/15 p-3">
@@ -62,10 +68,11 @@ export default async function DashboardPage() {
           </div>
           <div className="min-w-0">
             <p className="text-lg font-black">Emitir uma nota</p>
-            <p className="text-sm font-medium text-white/80">Nota avulsa para qualquer cliente</p>
+            <p className="text-sm font-medium text-white/80">{emissionDescription}</p>
           </div>
         </Link>
 
+        {fiscalModule === "nfse" ? (
         <Link
           href="/lote"
           className="group flex min-h-28 items-center gap-4 rounded-lg border border-[#d6cec0] bg-[#fffdf8] p-5 transition-transform hover:-translate-y-0.5 hover:border-[#0f766e]"
@@ -78,6 +85,20 @@ export default async function DashboardPage() {
             <p className="text-sm font-medium text-[#716b61]">Exclusivo pra nota de serviço</p>
           </div>
         </Link>
+        ) : fiscalModule === "nfe" ? (
+        <Link
+          href="/importar-xml"
+          className="group flex min-h-28 items-center gap-4 rounded-lg border border-[#d6cec0] bg-[#fffdf8] p-5 transition-transform hover:-translate-y-0.5 hover:border-[#0f766e]"
+        >
+          <div className="rounded-md bg-[#d9f3ee] p-3">
+            <FileUp size={22} className="text-[#0f766e]" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-lg font-black text-[#25231f]">Importar XML</p>
+            <p className="text-sm font-medium text-[#716b61]">Importe notas para consulta e devolu&ccedil;&atilde;o</p>
+          </div>
+        </Link>
+        ) : null}
 
         {isAdmin && (
           <Link

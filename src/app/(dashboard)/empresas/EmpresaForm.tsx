@@ -62,6 +62,7 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
     aliquota_iss_padrao: valueFrom(settings, "aliquota_iss_padrao") || "3",
     environment: valueFrom(settings, "environment") || "production",
     nfce_serie: valueFrom(settings, "nfce_serie") || "1",
+    nfe_serie: valueFrom(settings, "nfe_serie") || "1",
   });
 
   const setField = (field: string, value: string | boolean) =>
@@ -192,27 +193,19 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
         <div className="grid gap-4 md:grid-cols-3">
           <div className="md:col-span-3">
             <label className="label">Módulos habilitados</label>
+            <p className="mb-2 text-xs font-medium text-[#716b61]">Nesta fase, cada empresa pode emitir apenas um tipo de documento fiscal.</p>
             <div className="flex flex-wrap gap-2">
               {[
                 { id: "nfse", label: "NFSe" },
                 { id: "nfce", label: "NFCe" },
                 { id: "nfe", label: "NFe" },
               ].map((m) => {
-                const isActive = form.moduleAccess.split("_").includes(m.id);
+                const isActive = form.moduleAccess === m.id;
                 return (
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => {
-                      const current = form.moduleAccess.split("_").filter(Boolean);
-                      let next;
-                      if (current.includes(m.id)) {
-                        next = current.filter((i) => i !== m.id);
-                      } else {
-                        next = [...current, m.id];
-                      }
-                      setField("moduleAccess", next.join("_"));
-                    }}
+                    onClick={() => setField("moduleAccess", m.id)}
                     className={`flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-bold transition-all ${
                       isActive
                         ? "border-[#0f766e] bg-[#0f766e] text-white shadow-sm"
@@ -406,6 +399,10 @@ export default function EmpresaForm({ initial }: { initial?: InitialCompany }) {
         <div>
           <label className="label">Série NFC-e</label>
           <input className="input max-w-xs" value={form.nfce_serie} onChange={(e) => setField("nfce_serie", e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Serie NF-e</label>
+          <input className="input max-w-xs" type="number" min="1" value={form.nfe_serie} onChange={(e) => setField("nfe_serie", e.target.value)} />
         </div>
         {([
           { key: "hom", label: "Homologação" },

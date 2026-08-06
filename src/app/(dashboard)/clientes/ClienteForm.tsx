@@ -24,6 +24,8 @@ type InitialData = {
   uf?: string;
   cep?: string;
   codigo_municipio_ibge?: string;
+  inscricao_estadual?: string;
+  ind_ie_dest?: 1 | 2 | 9;
   client_services?: Array<{
     descricao: string;
     valor_mensal?: number | null;
@@ -48,6 +50,8 @@ export default function ClienteForm({ initial }: { initial?: InitialData }) {
     uf: initial?.uf || "",
     cep: initial?.cep || "",
     codigo_municipio_ibge: initial?.codigo_municipio_ibge || "",
+    inscricao_estadual: initial?.inscricao_estadual || "",
+    ind_ie_dest: String(initial?.ind_ie_dest || "9"),
   });
 
   const [services, setServices] = useState<Service[]>(
@@ -104,6 +108,7 @@ export default function ClienteForm({ initial }: { initial?: InitialData }) {
       const result = await saveClient({
         id: initial?.id,
         ...form,
+        ind_ie_dest: Number(form.ind_ie_dest) as 1 | 2 | 9,
         services: services.map((service) => ({
           descricao: service.descricao,
           valor_mensal: service.valor_mensal ? parseFloat(service.valor_mensal.replace(",", ".")) : null,
@@ -137,6 +142,18 @@ export default function ClienteForm({ initial }: { initial?: InitialData }) {
           <div>
             <label className="label">Telefone</label>
             <input className="input" value={form.telefone} onChange={(e) => setField("telefone", e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Inscricao estadual</label>
+            <input className="input" value={form.inscricao_estadual} onChange={(e) => setField("inscricao_estadual", e.target.value)} placeholder="Somente numeros" />
+          </div>
+          <div>
+            <label className="label">Indicador de IE</label>
+            <select className="input" value={form.ind_ie_dest} onChange={(e) => setField("ind_ie_dest", e.target.value)}>
+              <option value="9">Nao contribuinte</option>
+              <option value="1">Contribuinte ICMS</option>
+              <option value="2">Contribuinte isento</option>
+            </select>
           </div>
         </div>
       </div>

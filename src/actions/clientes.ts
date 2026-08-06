@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireCompanyOperatorContext } from "@/lib/auth-context";
+import { requireCompanyOperatorContext, requireFiscalModule } from "@/lib/auth-context";
 
 async function getOrgId() {
   const context = await requireCompanyOperatorContext();
@@ -91,7 +91,8 @@ export async function getClientsWithServices() {
 }
 
 export async function getClientsForBatch(mesReferencia: string, environment?: "production" | "homologation") {
-  const { supabase, orgId } = await getOrgId();
+  const context = await requireFiscalModule("nfse");
+  const { supabase, orgId } = { supabase: context.supabase, orgId: context.orgId as string };
 
   const [
     { data: clients, error: clientsError },
@@ -193,6 +194,8 @@ type ClientInput = {
   uf?: string;
   cep?: string;
   codigo_municipio_ibge?: string;
+  inscricao_estadual?: string;
+  ind_ie_dest?: 1 | 2 | 9;
   services?: ServiceInput[];
 };
 
@@ -214,6 +217,8 @@ export async function saveClient(data: ClientInput) {
     uf: data.uf || null,
     cep: data.cep || null,
     codigo_municipio_ibge: data.codigo_municipio_ibge || null,
+    inscricao_estadual: data.inscricao_estadual || null,
+    ind_ie_dest: data.ind_ie_dest || null,
   };
 
   if (clientId) {

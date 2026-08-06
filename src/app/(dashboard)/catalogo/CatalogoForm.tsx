@@ -14,6 +14,8 @@ export default function CatalogoForm() {
     name: "",
     price: "",
     ncm: "",
+    codigo: "",
+    unidade: "UN",
   });
 
   const setField = (field: string, value: string) =>
@@ -32,6 +34,8 @@ export default function CatalogoForm() {
         itemType: activeTab,
         price: Number(form.price.replace(",", ".")) || 0,
         ncm: form.ncm,
+        codigo: form.codigo,
+        unidade: form.unidade,
       });
 
       if (result?.error) {
@@ -40,7 +44,7 @@ export default function CatalogoForm() {
       }
 
       setSuccess(true);
-      setForm({ name: "", price: "", ncm: "" });
+      setForm({ name: "", price: "", ncm: "", codigo: "", unidade: "UN" });
     });
   }
 
@@ -119,14 +123,19 @@ export default function CatalogoForm() {
           </div>
 
           {activeTab === "produto" && (
-            <div>
-              <label className="label">NCM</label>
-              <input
-                className="input"
-                value={form.ncm}
-                onChange={(e) => setField("ncm", e.target.value)}
-                placeholder="Opcional no MVP"
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">C&oacute;digo interno</label>
+                <input className="input" value={form.codigo} onChange={(e) => setField("codigo", e.target.value)} placeholder="Ex: 001" />
+              </div>
+              <div>
+                <label className="label">Unidade</label>
+                <input className="input" value={form.unidade} onChange={(e) => setField("unidade", e.target.value)} placeholder="UN" maxLength={6} />
+              </div>
+              <div>
+                <label className="label">NCM</label>
+                <input className="input" value={form.ncm} onChange={(e) => setField("ncm", e.target.value)} placeholder="Obrigat&oacute;rio para NF-e" />
+              </div>
             </div>
           )}
 

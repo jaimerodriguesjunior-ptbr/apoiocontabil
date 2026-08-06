@@ -3,6 +3,9 @@ import { getCompany } from "@/actions/empresa";
 import LoteForm from "./LoteForm";
 import { CheckCircle2, ListOrdered, RotateCw, Users } from "lucide-react";
 import Link from "next/link";
+import { getAuthContext } from "@/lib/auth-context";
+import { getFiscalModule } from "@/lib/fiscal-modules";
+import { redirect } from "next/navigation";
 
 function getMesAtual() {
   const d = new Date();
@@ -31,6 +34,9 @@ export default async function LotePage({
     reemitKey?: string | string[];
   }>;
 }) {
+  const context = await getAuthContext();
+  if (getFiscalModule(context?.organization?.module_access) !== "nfse") redirect("/dashboard");
+
   const params = await searchParams;
   const forceNew = firstParam(params.novo) === "1";
   const mesAtual = firstParam(params.mes) || getMesAtual();
