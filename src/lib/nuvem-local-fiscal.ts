@@ -54,7 +54,11 @@ function baseUrl() {
 function resolveNfseProvider(provider: string | null | undefined, municipalityCode: string | null | undefined) {
   const selected = (provider || "").trim().toLowerCase();
   const municipality = (municipalityCode || "").replace(/\D/g, "");
-  if (selected === "guaira-ipm" || selected === "toledo-equiplano") return selected;
+  if (
+    selected === "guaira-ipm" ||
+    selected === "toledo-equiplano" ||
+    selected === "nfse-nacional"
+  ) return selected;
   if (municipality === "4108809") return "guaira-ipm";
   if (municipality === "4127700") return "toledo-equiplano";
   return null;
@@ -88,6 +92,27 @@ async function requestLocalFiscal(
     // Nunca inclui o corpo da resposta: ele pode conter dados fiscais sensíveis.
   }
   throw new Error(message);
+}
+
+async function getLocalNfseProvider(
+  url: string,
+  token: string,
+  cnpj: string,
+  ambiente: "homologacao" | "producao"
+) {
+  const response = await fetch(`${url}/empresas/${cnpj}/nfse?ambiente=${ambiente}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Falha ao consultar a configuração NFS-e (${response.status}).`);
+  }
+  const payload = (await response.json()) as { provedor?: unknown };
+  return typeof payload.provedor === "string" ? payload.provedor : null;
 }
 
 export async function syncCompanyWithLocalFiscal(data: CompanyFiscalData): Promise<SyncResult> {
@@ -152,7 +177,24 @@ export async function syncCompanyWithLocalFiscal(data: CompanyFiscalData): Promi
         });
       }
 
-      if (hasNfseCredentials && nfseProvider) {
+      const currentNfseProvider = await getLocalNfseProvider(
+        url,
+        token,
+        cnpj,
+        environment.ambiente
+      );
+      // A escolha Nacional é feita na Nuvem Local por empresa/ambiente. O
+      // cliente continua enviando o payload comum de emissão, mas nunca deve
+      // substituir essa escolha por sua configuração municipal ao salvar o
+      // cadastro novamente.
+      const preservesNationalConfig = currentNfseProvider === "nfse-nacional";
+      const canConfigureProvider =
+        Boolean(nfseProvider) &&
+        !preservesNationalConfig &&
+        nfseProvider !== "nfse-nacional" &&
+        (nfseProvider === "toledo-equiplano" || hasNfseCredentials);
+
+      if (canConfigureProvider && nfseProvider) {
         const providerPayload =
           nfseProvider === "toledo-equiplano"
             ? {
@@ -173,7 +215,9 @@ export async function syncCompanyWithLocalFiscal(data: CompanyFiscalData): Promi
         await requestLocalFiscal(`${url}/empresas/${cnpj}/nfse`, token, "PUT", {
           ambiente: environment.ambiente,
           provedor: nfseProvider,
-          prefeitura: { login: data.nfseLogin, senha: data.nfsePassword },
+          prefeitura: hasNfseCredentials
+            ? { login: data.nfseLogin, senha: data.nfsePassword }
+            : {},
           municipio: { codigo_ibge: data.codigoMunicipioIbge, cidade: data.cidade },
           inscricao_municipal: data.inscricaoMunicipal,
           servico: {
