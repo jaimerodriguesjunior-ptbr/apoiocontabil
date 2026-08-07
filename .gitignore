@@ -58,3 +58,6 @@ EnviaLoteRps_REAL.xml
 *.jpeg
 *.png
 !public/**
+
+.vercel
+.env*
