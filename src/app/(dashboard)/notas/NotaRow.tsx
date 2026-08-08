@@ -154,9 +154,20 @@ export default function NotaRow({
 
     const motivo = window.prompt("Informe o motivo do cancelamento:", "Cancelamento solicitado pelo emitente.");
     if (motivo === null) return;
+    const codigo = window.prompt(
+      "Código do motivo: 1 = erro na emissão; 2 = serviço não prestado; 9 = outros.",
+      "9"
+    );
+    if (codigo === null || !["1", "2", "9"].includes(codigo.trim())) {
+      setErrorMsg("Código inválido. Use 1, 2 ou 9.");
+      setShowError(true);
+      return;
+    }
 
     startTransition(async () => {
-      const res = nota.tipo_documento === "NFe" ? await cancelarNFe(nota.id, motivo) : await cancelarNFSe(nota.id, motivo);
+      const res = nota.tipo_documento === "NFe"
+        ? await cancelarNFe(nota.id, motivo)
+        : await cancelarNFSe(nota.id, motivo, codigo.trim());
       if (res.success) {
         setStatus(res.status || "cancelled");
         setErrorMsg(null);

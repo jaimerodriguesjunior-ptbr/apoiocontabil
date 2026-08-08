@@ -571,10 +571,13 @@ export async function consultarNFSe(invoiceId: string) {
 export async function cancelarNFSe(invoiceId: string, motivo: string, codigo?: string) {
   const { supabase, orgId } = await getOrgId();
   const cleanMotivo = motivo.trim();
-  const cleanCodigo = codigo?.trim();
+  const cleanCodigo = codigo?.trim() || "9";
 
   if (cleanMotivo.length < 15) {
     return { success: false, error: "Informe um motivo de cancelamento com pelo menos 15 caracteres." };
+  }
+  if (!["1", "2", "9"].includes(cleanCodigo)) {
+    return { success: false, error: "Codigo de motivo invalido. Use 1, 2 ou 9." };
   }
 
   const { data: invoice } = await supabase
