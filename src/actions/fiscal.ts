@@ -630,6 +630,7 @@ export async function cancelarNFSe(invoiceId: string, motivo: string, codigo?: s
   }
 
   const cancelStatus = String(result.status || "").toLowerCase();
+  const cancelled = ["cancelado", "cancelada"].includes(cancelStatus);
   const rejected = ["erro", "rejeitado", "negado"].includes(cancelStatus);
   const cancelMessage = result.mensagens?.length
     ? result.mensagens.map((m) => `${m.codigo || ""}: ${m.descricao || ""}`).join(" | ")
@@ -647,6 +648,22 @@ export async function cancelarNFSe(invoiceId: string, motivo: string, codigo?: s
     return { success: false, error: `Cancelamento rejeitado: ${cancelMessage}` };
   }
 
+  if (!cancelled) {
+    await supabase
+      .from("fiscal_invoices")
+      .update({
+        error_message: "Cancelamento ainda nao confirmado pela SEFIN. A nota permanece autorizada.",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", invoiceId)
+      .eq("organization_id", orgId);
+
+    return {
+      success: false,
+      error: "Cancelamento ainda nao confirmado pela SEFIN. Consulte a nota antes de tentar novamente."
+    };
+  }
+
   await supabase
     .from("fiscal_invoices")
     .update({
@@ -654,7 +671,8 @@ export async function cancelarNFSe(invoiceId: string, motivo: string, codigo?: s
       error_message: null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", invoiceId);
+    .eq("id", invoiceId)
+    .eq("organization_id", orgId);
 
   revalidatePath("/notas");
   return { success: true, status: "cancelled", data: result };
