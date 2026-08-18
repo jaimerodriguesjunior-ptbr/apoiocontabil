@@ -21,6 +21,8 @@ type NFeReturnInput = { originInvoiceId: string; items: Array<{ codigo: string; 
 
 const money = (value: number) => Number(Number(value || 0).toFixed(2));
 const digits = (value?: string | null) => String(value || "").replace(/\D/g, "");
+// Excecao temporaria para a Mineracao Linha Bandeirantes, conforme orientacao fiscal.
+const MINERADORA_CFOP_5101_CNPJ = "13107823000162";
 // Mantido equivalente ao sanitizador fiscal da Autoeletrica para que os dois clientes
 // enviem texto compativel com o mesmo contrato da Nuvem Local Fiscal.
 const fiscalText = (value: unknown, max = 60) => String(value || "")
@@ -267,11 +269,14 @@ export async function saveNFeVendaDraft(input: NFeVendaDraftInput) {
 
   const environment = company.environment === "production" ? "production" : "homologation";
   const sameState = String(client.uf).toUpperCase() === String(company.uf).toUpperCase();
+  const saleCfop = digits(company.cnpj) === MINERADORA_CFOP_5101_CNPJ
+    ? "5101"
+    : sameState ? "5102" : "6102";
   const items = input.items.map((item, index) => {
     const quantidade = Number(item.quantidade);
     const valorUnitario = money(item.valorUnitario);
     const valorTotal = money(quantidade * valorUnitario);
-    return { nItem: index + 1, catalog_item_id: item.catalogItemId, codigo: item.codigo || String(index + 1), descricao: item.descricao.trim(), ncm: digits(item.ncm), cfop: sameState ? "5102" : "6102", unidade: item.unidade.trim().toUpperCase() || "UN", quantidade, valor_unitario: valorUnitario, valor_total: valorTotal };
+    return { nItem: index + 1, catalog_item_id: item.catalogItemId, codigo: item.codigo || String(index + 1), descricao: item.descricao.trim(), ncm: digits(item.ncm), cfop: saleCfop, unidade: item.unidade.trim().toUpperCase() || "UN", quantidade, valor_unitario: valorUnitario, valor_total: valorTotal };
   });
   const valorTotal = money(items.reduce((total, item) => total + item.valor_total, 0));
   const payload = { version: 1, type: "sale", environment, natureza_operacao: "VENDA DE MERCADORIA", finalidade_nfe: 1, id_dest: sameState ? 1 : 2, company: { cnpj: digits(company.cnpj), razao_social: company.razao_social, serie: company.nfe_serie || 1 }, destinatario: client, items, totals: { valor_produtos: valorTotal, valor_nota: valorTotal } };
@@ -312,6 +317,7 @@ export async function sendNFeVendaDraft(invoiceId: string) {
     number = Number(reservedNumber);
   }
   const sameState = String(company.uf || "").toUpperCase() === String(client.uf || "").toUpperCase();
+  const forcedSaleCfop = digits(company.cnpj) === MINERADORA_CFOP_5101_CNPJ ? "5101" : null;
   const document = digits(client.cpf_cnpj);
   const clientIe = digits(client.inscricao_estadual);
   const configuredIndIeDest = Number(client.ind_ie_dest);
@@ -323,7 +329,7 @@ export async function sendNFeVendaDraft(invoiceId: string) {
     UF: fiscalText(entity.uf, 2).toUpperCase(), CEP: digits(entity.cep as string), cPais: "1058", xPais: "BRASIL",
   });
   const total = money(items.reduce((sum, item) => sum + Number(item.valor_total || 0), 0));
-  const sendRtc = items.every((item) => ["5101", "5102", "6101", "6102"].includes(item.cfop));
+  const sendRtc = items.every((item) => ["5101", "5102", "6101", "6102"].includes(forcedSaleCfop || item.cfop));
   const payload = {
     ambiente: environment === "production" ? "producao" : "homologacao",
     infNFe: {
@@ -338,7 +344,7 @@ export async function sendNFeVendaDraft(invoiceId: string) {
       dest: { ...(document.length === 14 ? { CNPJ: document } : { CPF: document }), xNome: fiscalText(client.nome), enderDest: address(client), indIEDest, ...(indIEDest === 1 && clientIe ? { IE: clientIe } : {}), email: fiscalText(client.email) || undefined },
       det: items.map((item, index) => ({
         nItem: index + 1,
-        prod: { cProd: item.codigo || String(index + 1), cEAN: "SEM GTIN", xProd: fiscalText(item.descricao, 120), NCM: item.ncm, CFOP: item.cfop, uCom: item.unidade, qCom: item.quantidade, vUnCom: money(item.valor_unitario), vProd: money(item.valor_total), cEANTrib: "SEM GTIN", uTrib: item.unidade, qTrib: item.quantidade, vUnTrib: money(item.valor_unitario), indTot: 1 },
+        prod: { cProd: item.codigo || String(index + 1), cEAN: "SEM GTIN", xProd: fiscalText(item.descricao, 120), NCM: item.ncm, CFOP: forcedSaleCfop || item.cfop, uCom: item.unidade, qCom: item.quantidade, vUnCom: money(item.valor_unitario), vProd: money(item.valor_total), cEANTrib: "SEM GTIN", uTrib: item.unidade, qTrib: item.quantidade, vUnTrib: money(item.valor_unitario), indTot: 1 },
         imposto: { ICMS: { ICMSSN102: { orig: 0, CSOSN: "102" } }, PIS: { PISOutr: { CST: "99", vBC: 0, pPIS: 0, vPIS: 0 } }, COFINS: { COFINSOutr: { CST: "99", vBC: 0, pCOFINS: 0, vCOFINS: 0 } }, ...(sendRtc ? buildRtcHomologationItem(item.valor_total) : {}) },
       })),
       total: { ICMSTot: { vBC: 0, vICMS: 0, vICMSDeson: 0, vFCP: 0, vBCST: 0, vST: 0, vFCPST: 0, vFCPSTRet: 0, vProd: total, vFrete: 0, vSeg: 0, vDesc: 0, vII: 0, vIPI: 0, vIPIDevol: 0, vPIS: 0, vCOFINS: 0, vOutro: 0, vNF: total }, ...(sendRtc ? buildRtcHomologationTotal(total) : {}) },
