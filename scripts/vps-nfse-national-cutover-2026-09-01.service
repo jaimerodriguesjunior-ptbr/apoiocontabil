@@ -1,0 +1,8 @@
+[Unit]
+Description=Ativacao da NFS-e Nacional - empresas Apoio Contabil
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/node /usr/local/sbin/vps_nfse_nacional_cutover_2026_09_01.mjs
+StandardOutput=append:/var/log/nfse-national-cutover-2026-09-01.log
+StandardError=append:/var/log/nfse-national-cutover-2026-09-01.log

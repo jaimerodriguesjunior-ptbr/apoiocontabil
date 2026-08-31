@@ -1,0 +1,10 @@
+[Unit]
+Description=Agenda ativacao da NFS-e Nacional - empresas Apoio Contabil
+
+[Timer]
+OnCalendar=2026-09-01 03:01:00 UTC
+Persistent=true
+Unit=vps-nfse-national-cutover-2026-09-01.service
+
+[Install]
+WantedBy=timers.target
