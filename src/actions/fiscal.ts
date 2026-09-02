@@ -66,31 +66,32 @@ function hasValidCpfOrCnpj(value: unknown): boolean {
 }
 
 function getSaoPauloDate(customDate?: string) {
-  let d: Date;
-
-  if (customDate) {
-    const [y, m, day] = customDate.split("-").map(Number);
-    d = new Date(Date.UTC(y, m - 1, day, 15, 0, 0));
-  } else {
-    d = new Date();
-  }
-
-  const parts = new Intl.DateTimeFormat("en-CA", {
+  const nowParts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(d);
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
 
-  const year = parts.find((p) => p.type === "year")?.value || "2026";
-  const month = parts.find((p) => p.type === "month")?.value || "01";
-  const day = parts.find((p) => p.type === "day")?.value || "01";
-  const dCompet = `${year}-${month}-${day}`;
+  const current = (type: Intl.DateTimeFormatPartTypes) =>
+    nowParts.find((part) => part.type === type)?.value || "00";
+  const currentDate = `${current("year")}-${current("month")}-${current("day")}`;
+
+  // dhEmi representa o instante em que a DPS e gerada. Nunca use um horario
+  // fixo para a data corrente: antes desse horario a SEFIN rejeita a DPS com
+  // E0008 (data de emissao posterior ao processamento). A competencia pode
+  // continuar sendo informada separadamente para as emissoes em lote.
+  const dCompet = customDate || currentDate;
+  const dhEmi = `${currentDate}T${current("hour")}:${current("minute")}:${current("second")}-03:00`;
 
   return {
-    dhEmi: `${dCompet}T12:00:00-03:00`,
+    dhEmi,
     dCompet,
-    mesReferencia: `${year}-${month}`,
+    mesReferencia: dCompet.slice(0, 7),
   };
 }
 
