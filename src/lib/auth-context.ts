@@ -104,7 +104,7 @@ export function getDefaultPathForRole(role: UserRole) {
 }
 
 export function getAreaForPath(pathname: string): AppArea {
-  if (pathname.startsWith("/empresas")) return "accountant";
+  if (pathname.startsWith("/empresas") || pathname.startsWith("/usuarios")) return "accountant";
   return "company";
 }
 

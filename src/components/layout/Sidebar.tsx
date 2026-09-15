@@ -19,6 +19,7 @@ import { createClient } from "@/utils/supabase/client";
 
 const accountantNavItems = [
   { href: "/empresas", label: "Empresas", icon: Building2 },
+  { href: "/usuarios", label: "Usuários", icon: Users },
 ];
 
 const adminNavItems = [

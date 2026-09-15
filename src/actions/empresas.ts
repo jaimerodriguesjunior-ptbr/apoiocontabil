@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { requireAuthContext } from "@/lib/auth-context";
 import { syncCompanyWithLocalFiscal } from "@/lib/nuvem-local-fiscal";
 import { getFiscalModule } from "@/lib/fiscal-modules";
+import { getPortfolioOwnerId } from "@/lib/accountant-team";
 
 type CompanyInput = {
   id?: string;
@@ -66,6 +67,8 @@ type ResetPasswordInput = {
   password: string;
 };
 
+type AccountantTeamUserInput = { fullName: string; email: string; password: string };
+
 async function requireAccountant() {
   const context = await requireAuthContext();
 
@@ -84,26 +87,97 @@ function cleanText(value?: string) {
 export async function getAccountantCompanies() {
   const context = await requireAccountant();
   const admin = createAdminClient();
+  const ownerId = await getPortfolioOwnerId(admin, context.userId);
 
   const { data, error } = await admin
     .from("organizations")
     .select("id, name, document, module_access, is_blocked, blocked_reason, created_at")
-    .eq("owner_accountant_id", context.userId)
+    .eq("owner_accountant_id", ownerId)
     .order("name");
 
   if (error) throw error;
   return data || [];
 }
 
+export async function getAccountantUsers() {
+  const context = await requireAccountant();
+  const admin = createAdminClient();
+  const ownerId = await getPortfolioOwnerId(admin, context.userId);
+  const { data: companies, error: companiesError } = await admin
+    .from("organizations")
+    .select("id, name")
+    .eq("owner_accountant_id", ownerId)
+    .order("name");
+
+  if (companiesError) throw companiesError;
+  const companyIds = (companies || []).map((company) => company.id);
+  if (!companyIds.length) return { companies: [], users: [] };
+
+  const { data: users, error: usersError } = await admin
+    .from("profiles")
+    .select("id, organization_id, full_name, email, role, is_active, created_at")
+    .in("organization_id", companyIds)
+    .in("role", ["cliente_admin", "cliente_usuario"])
+    .order("full_name");
+
+  if (usersError) throw usersError;
+  const names = new Map((companies || []).map((company) => [company.id, company.name]));
+  return {
+    companies: companies || [],
+    users: (users || []).map((user) => ({ ...user, company_name: names.get(user.organization_id) || "Empresa não encontrada" })),
+  };
+}
+
+export async function getAccountantTeamUsers() {
+  const context = await requireAccountant();
+  const admin = createAdminClient();
+  const ownerId = await getPortfolioOwnerId(admin, context.userId);
+  const { data: memberships, error: membershipsError } = await admin.from("accountant_team_members").select("accountant_id").eq("owner_accountant_id", ownerId);
+  if (membershipsError) throw membershipsError;
+  const { data: users, error: usersError } = await admin.from("profiles").select("id, full_name, email, role, is_active, created_at").in("id", [ownerId, ...(memberships || []).map((item) => item.accountant_id)]).eq("role", "contador").order("full_name");
+  if (usersError) throw usersError;
+  return users || [];
+}
+
+export async function createAccountantTeamUser(data: AccountantTeamUserInput) {
+  const context = await requireAccountant();
+  const admin = createAdminClient();
+  const ownerId = await getPortfolioOwnerId(admin, context.userId);
+  if (!data.fullName.trim() || !data.email.trim()) return { error: "Informe nome e e-mail." };
+  if (data.password.length < 6) return { error: "A senha deve ter pelo menos 6 caracteres." };
+  const { data: authUser, error: authError } = await admin.auth.admin.createUser({ email: data.email.trim(), password: data.password, email_confirm: true, user_metadata: { full_name: data.fullName.trim() } });
+  if (authError) return { error: authError.message };
+  const { error: profileError } = await admin.from("profiles").upsert({ id: authUser.user.id, organization_id: null, full_name: data.fullName.trim(), email: data.email.trim(), role: "contador", is_active: true }, { onConflict: "id" });
+  if (profileError) return { error: profileError.message };
+  const { error: membershipError } = await admin.from("accountant_team_members").insert({ owner_accountant_id: ownerId, accountant_id: authUser.user.id });
+  if (membershipError) return { error: membershipError.message };
+  revalidatePath("/usuarios");
+  return { success: true };
+}
+
+export async function resetAccountantTeamUserPassword(data: { userId: string; password: string }) {
+  const context = await requireAccountant();
+  const admin = createAdminClient();
+  const ownerId = await getPortfolioOwnerId(admin, context.userId);
+  if (data.password.length < 6) return { error: "A senha deve ter pelo menos 6 caracteres." };
+  const { data: membership } = await admin.from("accountant_team_members").select("accountant_id").eq("owner_accountant_id", ownerId).eq("accountant_id", data.userId).maybeSingle();
+  if (!membership && data.userId !== ownerId) return { error: "Contador não encontrado na equipe." };
+  const { error } = await admin.auth.admin.updateUserById(data.userId, { password: data.password });
+  if (error) return { error: error.message };
+  revalidatePath("/usuarios");
+  return { success: true };
+}
+
 export async function getAccountantCompany(id: string) {
   const context = await requireAccountant();
   const admin = createAdminClient();
+  const ownerId = await getPortfolioOwnerId(admin, context.userId);
 
   const { data: organization, error: orgError } = await admin
     .from("organizations")
     .select("id, name, document, module_access, is_blocked, blocked_reason, blocked_at")
     .eq("id", id)
-    .eq("owner_accountant_id", context.userId)
+    .eq("owner_accountant_id", ownerId)
     .single();
 
   if (orgError) throw orgError;
@@ -132,6 +206,7 @@ export async function getAccountantCompany(id: string) {
 export async function saveAccountantCompany(data: CompanyInput) {
   const context = await requireAccountant();
   const admin = createAdminClient();
+  const ownerId = await getPortfolioOwnerId(admin, context.userId);
 
   if (!getFiscalModule(data.moduleAccess)) {
     return { error: "Selecione exatamente um modulo fiscal para a empresa." };
@@ -156,7 +231,7 @@ export async function saveAccountantCompany(data: CompanyInput) {
       .from("organizations")
       .update(organizationPayload)
       .eq("id", organizationId)
-      .eq("owner_accountant_id", context.userId);
+      .eq("owner_accountant_id", ownerId);
 
     if (error) return { error: error.message };
   } else {
@@ -164,7 +239,7 @@ export async function saveAccountantCompany(data: CompanyInput) {
       .from("organizations")
       .insert({
         ...organizationPayload,
-        owner_accountant_id: context.userId,
+        owner_accountant_id: ownerId,
       })
       .select("id")
       .single();
@@ -293,6 +368,7 @@ export async function saveAccountantCompany(data: CompanyInput) {
 export async function createCompanyUser(data: CompanyUserInput) {
   const context = await requireAccountant();
   const admin = createAdminClient();
+  const ownerId = await getPortfolioOwnerId(admin, context.userId);
 
   if (!data.fullName.trim()) return { error: "Informe o nome do usuario." };
   if (!data.email.trim()) return { error: "Informe o email do usuario." };
@@ -302,7 +378,7 @@ export async function createCompanyUser(data: CompanyUserInput) {
     .from("organizations")
     .select("id")
     .eq("id", data.organizationId)
-    .eq("owner_accountant_id", context.userId)
+    .eq("owner_accountant_id", ownerId)
     .single();
 
   if (!organization) return { error: "Empresa nao encontrada para este contador." };
@@ -333,12 +409,14 @@ export async function createCompanyUser(data: CompanyUserInput) {
   if (profileError) return { error: profileError.message };
 
   revalidatePath(`/empresas/${data.organizationId}`);
+  revalidatePath("/usuarios");
   return { success: true };
 }
 
 export async function resetCompanyUserPassword(data: ResetPasswordInput) {
   const context = await requireAccountant();
   const admin = createAdminClient();
+  const ownerId = await getPortfolioOwnerId(admin, context.userId);
 
   if (data.password.length < 6) return { error: "A senha deve ter pelo menos 6 caracteres." };
 
@@ -356,7 +434,7 @@ export async function resetCompanyUserPassword(data: ResetPasswordInput) {
     .from("organizations")
     .select("id")
     .eq("id", data.organizationId)
-    .eq("owner_accountant_id", context.userId)
+    .eq("owner_accountant_id", ownerId)
     .single();
 
   if (!organization) return { error: "Empresa nao encontrada para este contador." };
@@ -368,6 +446,7 @@ export async function resetCompanyUserPassword(data: ResetPasswordInput) {
   if (error) return { error: error.message };
 
   revalidatePath(`/empresas/${data.organizationId}`);
+  revalidatePath("/usuarios");
   return { success: true };
 }
 

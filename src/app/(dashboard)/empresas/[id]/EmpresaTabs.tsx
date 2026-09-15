@@ -1,24 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Users, Settings2 } from "lucide-react";
+import { BarChart3, Building2, Users, Settings2 } from "lucide-react";
 
-type Tab = "cadastro" | "usuarios" | "config";
+type Tab = "cadastro" | "usuarios" | "config" | "relatorios";
 
 const TABS: { key: Tab; label: string; icon: typeof Building2 }[] = [
   { key: "cadastro", label: "Cadastro", icon: Building2 },
   { key: "usuarios", label: "Usuários", icon: Users },
   { key: "config", label: "Configurações", icon: Settings2 },
+  { key: "relatorios", label: "Relatórios", icon: BarChart3 },
 ];
 
 export default function EmpresaTabs({
   cadastroContent,
   usuariosContent,
   configContent,
+  relatoriosContent,
 }: {
   cadastroContent: React.ReactNode;
   usuariosContent: React.ReactNode;
   configContent: React.ReactNode;
+  relatoriosContent: React.ReactNode;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("cadastro");
 
@@ -47,6 +50,7 @@ export default function EmpresaTabs({
       {activeTab === "cadastro" && cadastroContent}
       {activeTab === "usuarios" && usuariosContent}
       {activeTab === "config" && configContent}
+      {activeTab === "relatorios" && relatoriosContent}
     </div>
   );
 }

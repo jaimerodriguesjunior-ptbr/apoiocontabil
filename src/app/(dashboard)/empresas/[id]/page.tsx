@@ -7,6 +7,8 @@ import ResetSenhaUsuarioForm from "../ResetSenhaUsuarioForm";
 import EmpresaTabs from "./EmpresaTabs";
 import ConfigDespesasFixas from "./ConfigDespesasFixas";
 import WhatsAppButton from "./WhatsAppButton";
+import RelatoriosEmpresa from "./RelatoriosEmpresa";
+import { getAccountantCompanyReport } from "@/actions/relatorios";
 
 type UserRow = {
   id: string;
@@ -24,9 +26,13 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default async function EmpresaDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [company, disabledExpenses] = await Promise.all([
+  const previousMonth = new Date();
+  previousMonth.setMonth(previousMonth.getMonth() - 1);
+  const defaultPeriod = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, "0")}`;
+  const [company, disabledExpenses, report] = await Promise.all([
     getAccountantCompany(id).catch(() => null),
     getDisabledFixedExpenses(id).catch(() => []),
+    getAccountantCompanyReport(id, defaultPeriod).catch(() => null),
   ]);
 
   if (!company) notFound();
@@ -89,6 +95,12 @@ export default async function EmpresaDetalhePage({ params }: { params: Promise<{
     />
   );
 
+  const relatoriosContent = report ? (
+    <RelatoriosEmpresa organizationId={company.organization.id} initialReport={report} />
+  ) : (
+    <div className="card text-sm font-medium text-[#716b61]">Não foi possível carregar o relatório desta empresa.</div>
+  );
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -108,6 +120,7 @@ export default async function EmpresaDetalhePage({ params }: { params: Promise<{
         cadastroContent={cadastroContent}
         usuariosContent={usuariosContent}
         configContent={configContent}
+        relatoriosContent={relatoriosContent}
       />
     </div>
   );
