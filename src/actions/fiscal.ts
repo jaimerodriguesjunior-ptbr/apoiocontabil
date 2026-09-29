@@ -356,7 +356,10 @@ export async function emitirNFSe(params: EmitirParams) {
       infDPS: {
         dhEmi,
         dCompet,
-        prest: { CNPJ: cnpj },
+        prest: {
+          CNPJ: cnpj,
+          ...(inscricaoMunicipal ? { IM: inscricaoMunicipal } : {}),
+        },
         toma: {
           CNPJ: cleanDoc.length > 11 ? cleanDoc : undefined,
           CPF: cleanDoc.length > 0 && cleanDoc.length <= 11 ? cleanDoc : undefined,
