@@ -107,8 +107,8 @@ type EmitirParams = {
 
 type NuvemResult = {
   id?: string;
-  numero?: string;
-  serie?: string;
+  numero?: string | number;
+  serie?: string | number;
   error?: { message?: string };
   status?: string;
   mensagens?: Array<{ codigo?: string | number; descricao?: string }>;
@@ -156,6 +156,16 @@ function nfseOutcomeFromProvider(result: NuvemResult, fallback: string) {
     return { status: "cancelled", errorMessage: null };
   }
   return { status: fallback, errorMessage: null };
+}
+
+function rejectedNfseUpdate(result: NuvemResult, errorMessage: string) {
+  return {
+    status: "error",
+    error_message: errorMessage,
+    ...(result.id ? { nuvemfiscal_uuid: result.id } : {}),
+    ...(result.numero != null ? { numero: String(result.numero) } : {}),
+    ...(result.serie != null ? { serie: String(result.serie) } : {}),
+  };
 }
 
 async function readNuvemResult(response: Response): Promise<NuvemResult> {
@@ -367,33 +377,34 @@ export async function emitirNFSe(params: EmitirParams) {
       throw new Error("Servico da LC 116 obrigatorio para Toledo. Informe o codigo de servico no formato 14.01, 14.01.01 ou 14.01.01.000.");
     }
 
-    const normalizeMunicipio = (codigo?: string | number) => {
-      if (!codigo) return ibgeMunicipio;
-      const raw = String(codigo).replace(/\D/g, "");
-      return raw || ibgeMunicipio;
-    };
-
     // Tomador (cliente)
     const clientPhone = onlyDigits(client.telefone);
     const companyPhone = onlyDigits(company.telefone);
     const phoneToSend = clientPhone || companyPhone;
     const clientCep = onlyDigits(client.cep);
-    const cepToSend = clientCep.length === 8 ? clientCep : companyCepToSend;
+    const clientMunicipality = onlyDigits(client.codigo_municipio_ibge);
+    if (client.cep && clientCep.length !== 8) {
+      throw new Error("O CEP do cliente deve conter 8 dígitos. Corrija o cadastro antes de emitir.");
+    }
+    if (clientCep && clientMunicipality.length !== 7) {
+      throw new Error("O código IBGE do município do cliente deve conter 7 dígitos. Corrija o cadastro antes de emitir.");
+    }
+    const cepToSend = clientCep || undefined;
 
     if (isToledo && !phoneToSend) {
       throw new Error("Telefone obrigatorio para emissao em Toledo. Preencha o telefone do cliente ou da empresa antes de emitir.");
     }
     if (isToledo && !cepToSend) {
-      throw new Error("CEP obrigatorio para emissao em Toledo. Preencha o CEP do cliente ou da empresa antes de emitir.");
+      throw new Error("CEP do cliente obrigatório para emissão em Toledo. Preencha o cadastro antes de emitir.");
     }
 
     const blockEnd = cepToSend
       ? {
-          xLgr: client.logradouro || company.logradouro || "Nao Informado",
-          nro: client.numero || company.numero || "SN",
-          xBairro: client.bairro || company.bairro || "Centro",
+          xLgr: client.logradouro || "Nao Informado",
+          nro: client.numero || "SN",
+          xBairro: client.bairro || "Centro",
           endNac: {
-            cMun: normalizeMunicipio(client.codigo_municipio_ibge || company.codigo_municipio_ibge),
+            cMun: clientMunicipality,
             CEP: cepToSend,
           },
         }
@@ -488,7 +499,7 @@ export async function emitirNFSe(params: EmitirParams) {
     try { result = JSON.parse(responseText) as NuvemResult; } catch { result = {}; }
 
     if (!response.ok) {
-      const errorDetails = result.error?.message || JSON.stringify(result);
+      const errorDetails = result.error?.message || result.message || result.motivo || JSON.stringify(result);
       const fullErrorString = JSON.stringify(result);
       const normalized = `${errorDetails} ${fullErrorString}`.toLowerCase();
 
@@ -497,7 +508,7 @@ export async function emitirNFSe(params: EmitirParams) {
         normalized.includes("8003");
 
       if (isToledo && isToledoCredentialIssue) {
-        await supabase.from("fiscal_invoices").update({ status: "error", error_message: fullErrorString }).eq("id", invoiceId);
+        await supabase.from("fiscal_invoices").update(rejectedNfseUpdate(result, fullErrorString)).eq("id", invoiceId);
         return {
           success: false,
           error: `Erro Toledo: ${errorDetails}\nVerifique na Nuvem Fiscal o cadastro da empresa e configuração NFS-e (login/IM).`,
@@ -518,16 +529,17 @@ export async function emitirNFSe(params: EmitirParams) {
             const retryResult = await retry.json() as NuvemResult;
             result = retryResult;
           } else {
-            const retryErr = JSON.stringify(await retry.json());
-            await supabase.from("fiscal_invoices").update({ status: "error", error_message: retryErr }).eq("id", invoiceId);
+            const retryResult = await readNuvemResult(retry);
+            const retryErr = JSON.stringify(retryResult);
+            await supabase.from("fiscal_invoices").update(rejectedNfseUpdate(retryResult, retryErr)).eq("id", invoiceId);
             return { success: false, error: `Erro NuvemFiscal (retry falhou): ${retryErr}` };
           }
         } else {
-          await supabase.from("fiscal_invoices").update({ status: "error", error_message: fullErrorString }).eq("id", invoiceId);
+          await supabase.from("fiscal_invoices").update(rejectedNfseUpdate(result, fullErrorString)).eq("id", invoiceId);
           return { success: false, error: `Erro NuvemFiscal: ${errorDetails}` };
         }
       } else {
-        await supabase.from("fiscal_invoices").update({ status: "error", error_message: fullErrorString }).eq("id", invoiceId);
+        await supabase.from("fiscal_invoices").update(rejectedNfseUpdate(result, fullErrorString)).eq("id", invoiceId);
         return { success: false, error: `Erro NuvemFiscal: ${errorDetails}` };
       }
     }

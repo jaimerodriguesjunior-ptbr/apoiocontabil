@@ -201,6 +201,11 @@ type ClientInput = {
 
 export async function saveClient(data: ClientInput) {
   const { supabase, orgId } = await getOrgId();
+  const informedCep = (data.cep || "").trim();
+  const cep = informedCep.replace(/\D/g, "");
+  if (informedCep && cep.length !== 8) {
+    return { error: "O CEP do cliente deve conter 8 dígitos." };
+  }
   if (!orgId) return { error: "Organização não encontrada" };
 
   let clientId = data.id;
@@ -215,7 +220,7 @@ export async function saveClient(data: ClientInput) {
     bairro: data.bairro || null,
     cidade: data.cidade || null,
     uf: data.uf || null,
-    cep: data.cep || null,
+    cep: cep || null,
     codigo_municipio_ibge: data.codigo_municipio_ibge || null,
     inscricao_estadual: data.inscricao_estadual || null,
     ind_ie_dest: data.ind_ie_dest || null,
