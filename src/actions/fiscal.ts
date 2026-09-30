@@ -134,6 +134,57 @@ function isMissingBatchOriginColumn(error: unknown) {
   );
 }
 
+function isPreparedNationalHomologationDps(result: NuvemResult) {
+  return String(result.status || "").toLowerCase() === "processamento"
+    && result.motivo_status === "NFSE_NACIONAL_DPS_GENERATED"
+    && Boolean(result.id);
+}
+
+function nfseOutcomeFromProvider(result: NuvemResult, fallback: string) {
+  const providerStatus = String(result.status || "").toLowerCase();
+  if (providerStatus === "autorizado" || providerStatus === "autorizada") {
+    return { status: "authorized", errorMessage: null as string | null };
+  }
+  if (["erro", "rejeitado", "rejeitada", "negado", "negada"].includes(providerStatus)) {
+    const motivo = typeof result.motivo === "string" ? result.motivo : null;
+    const errorMessage = result.mensagens?.length
+      ? result.mensagens.map((item) => `${item.codigo}: ${item.descricao}`).join(" | ")
+      : motivo || result.motivo_status || JSON.stringify(result);
+    return { status: "error", errorMessage };
+  }
+  if (providerStatus === "cancelado" || providerStatus === "cancelada") {
+    return { status: "cancelled", errorMessage: null };
+  }
+  return { status: fallback, errorMessage: null };
+}
+
+async function readNuvemResult(response: Response): Promise<NuvemResult> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as NuvemResult;
+  } catch {
+    return { message: text };
+  }
+}
+
+// A homologação nacional pode gravar a DPS assinada e parar antes da SEFIN.
+// Sem este envio a nota permanece em processamento para sempre.
+async function transmitPreparedHomologationDps(baseUrl: string, token: string, documentId: string) {
+  const response = await fetch(`${baseUrl}/nfse/${documentId}/transmitir-homologacao-nacional`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmacao: "TRANSMITIR DPS NACIONAL EM HOMOLOGACAO" }),
+  });
+  const result = await readNuvemResult(response);
+  if (response.status === 409) {
+    const current = await fetch(`${baseUrl}/nfse/${documentId}`, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+    if (current.ok) return readNuvemResult(current);
+  }
+  return result;
+}
+
 export async function emitirNFSe(params: EmitirParams) {
   const context = await requireFiscalModule("nfse");
   const { supabase, orgId } = { supabase: context.supabase, orgId: context.orgId as string };
@@ -358,7 +409,8 @@ export async function emitirNFSe(params: EmitirParams) {
         dCompet,
         prest: {
           CNPJ: cnpj,
-          ...(inscricaoMunicipal ? { IM: inscricaoMunicipal } : {}),
+          // Guaíra envia a IM na DPS nacional. Toledo deixa a tag de fora.
+          ...(isGuaira && inscricaoMunicipal ? { IM: inscricaoMunicipal } : {}),
         },
         toma: {
           CNPJ: cleanDoc.length > 11 ? cleanDoc : undefined,
@@ -480,19 +532,30 @@ export async function emitirNFSe(params: EmitirParams) {
       }
     }
 
-    // Sucesso
+    if (env === "homologation" && isPreparedNationalHomologationDps(result) && result.id) {
+      result = await transmitPreparedHomologationDps(baseUrl, token, result.id);
+    }
+
+    const outcome = nfseOutcomeFromProvider(result, "processing");
     await supabase
       .from("fiscal_invoices")
       .update({
-        status: "processing",
+        status: outcome.status,
+        error_message: outcome.errorMessage,
         nuvemfiscal_uuid: result.id,
         numero: result.numero,
         serie: result.serie,
+        chave_acesso: result.chave || result.codigo_verificacao,
+        xml_url: result.xml_url,
+        pdf_url: result.pdf_url || result.link_url,
         payload_json: dpsPayload,
       })
       .eq("id", invoiceId);
 
     revalidatePath("/notas");
+    if (outcome.status === "error") {
+      return { success: false, error: outcome.errorMessage || "NFS-e rejeitada." };
+    }
     return { success: true, invoiceId };
   } catch (error: unknown) {
     console.error("[emitirNFSe] Erro:", error);
@@ -532,21 +595,14 @@ export async function consultarNFSe(invoiceId: string) {
     return { success: false, error: err.error?.message || "Erro ao consultar." };
   }
 
-  const result = await response.json() as NuvemResult;
+  let result = await response.json() as NuvemResult;
+  if (env === "homologation" && isPreparedNationalHomologationDps(result) && result.id) {
+    result = await transmitPreparedHomologationDps(baseUrl, token, result.id);
+  }
 
-  let novoStatus = invoice.status;
-  let errorMessage = null;
-  const providerStatus = String(result.status || "").toLowerCase();
-
-  if (providerStatus === "autorizado" || providerStatus === "autorizada") novoStatus = "authorized";
-  else if (providerStatus && ["erro", "rejeitado", "rejeitada", "negado", "negada"].includes(providerStatus)) {
-    novoStatus = "error";
-    if (result.mensagens?.length) {
-      errorMessage = result.mensagens.map((m) => `${m.codigo}: ${m.descricao}`).join(" | ");
-    } else {
-      errorMessage = result.motivo_status || JSON.stringify(result);
-    }
-  } else if (providerStatus === "cancelado" || providerStatus === "cancelada") novoStatus = "cancelled";
+  const outcome = nfseOutcomeFromProvider(result, invoice.status || "processing");
+  const novoStatus = outcome.status;
+  const errorMessage = outcome.errorMessage;
 
   const updateData: Record<string, unknown> = {
     status: novoStatus,
